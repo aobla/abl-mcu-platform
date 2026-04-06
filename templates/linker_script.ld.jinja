@@ -1,0 +1,65 @@
+/* Generated from YAML configuration */
+/* Linker script for {{ config.platform }} */
+
+{% set flash_size = config.memory.flash %}
+{% set ram_size = config.memory.ram %}
+
+MEMORY
+{
+{% if config.platform.startswith('stm32') %}
+  /* STM32 Memory Layout */
+  FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = {{ flash_size }}
+  RAM (xrw)       : ORIGIN = 0x20000000, LENGTH = {{ ram_size }}
+{% elif config.platform.startswith('esp32') %}
+  /* ESP32 Memory Layout */
+  FLASH (rx)      : ORIGIN = 0x10000000, LENGTH = {{ flash_size }}
+  RAM (rwx)       : ORIGIN = 0x3FFC0000, LENGTH = {{ ram_size }}
+{% elif config.platform.startswith('avr') %}
+  /* AVR Memory Layout */
+  FLASH (rx)      : ORIGIN = 0x00000000, LENGTH = {{ flash_size }}
+  RAM (rwx)       : ORIGIN = 0x00800100, LENGTH = {{ ram_size }}
+{% else %}
+  /* Generic Memory Layout */
+  FLASH (rx)      : ORIGIN = 0x00000000, LENGTH = {{ flash_size }}
+  RAM (rwx)       : ORIGIN = 0x20000000, LENGTH = {{ ram_size }}
+{% endif %}
+}
+
+/* Entry point */
+ENTRY(Reset_Handler)
+
+/* Sections */
+SECTIONS
+{
+  /* Vector table and code */
+  .text :
+  {
+    KEEP(*(.isr_vector))
+    *(.text*)
+    *(.rodata*)
+    _etext = .;
+  } > FLASH
+
+  /* Initialized data */
+  .data :
+  {
+    _sdata = .;
+    *(.data*)
+    _edata = .;
+  } > RAM AT > FLASH
+
+  /* Uninitialized data */
+  .bss :
+  {
+    _sbss = .;
+    *(.bss*)
+    *(COMMON)
+    _ebss = .;
+  } > RAM
+
+  /* Stack section */
+  ._stack :
+  {
+    _estack = ORIGIN(RAM) + LENGTH(RAM);
+  } > RAM
+}

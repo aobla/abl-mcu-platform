@@ -1,0 +1,26 @@
+#ifndef HARDWARE_CONFIG_H
+#define HARDWARE_CONFIG_H
+
+/* Generated from YAML configuration */
+
+{% for key, value in config.items() %}
+{% if key == 'platform' %}
+#define PLATFORM_{{ value.upper().replace('-', '_') }}
+{% elif key == 'cpu' %}
+#define CPU_{{ value.upper().replace('-', '_').replace('.', '_') }}
+{% elif key == 'frequencies' %}
+{% for freq_name, freq_value in value.items() %}
+#define {{ freq_name.upper() }}_FREQ {{ freq_value }}
+{% endfor %}
+{% elif key == 'memory' %}
+{% for mem_type, mem_value in value.items() %}
+#define {{ mem_type.upper() }}_SIZE {{ mem_value }}
+{% endfor %}
+{% elif key == 'features' %}
+{% for feature_name, feature_enabled in value.items() %}
+#define CONFIG_{{ feature_name.upper() }}_ENABLED {% if feature_enabled %}1{% else %}0{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+#endif // HARDWARE_CONFIG_H

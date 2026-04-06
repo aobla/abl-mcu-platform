@@ -1,4 +1,4 @@
-# ABL MCU Platform Core
+# ABL MCU Platform Core 
 
 Это ядро кроссплатформенной MCU-платформы, обеспечивающее унифицированный доступ к периферии микроконтроллеров различных архитектур (STM32, ESP32, AVR).
 
@@ -6,7 +6,7 @@
 
 Платформа состоит из 4 репозиториев:
 - `abl-mcu-platform-core` - ядро с базовым HAL и тулчейнами
-- `abl-mcu-platform-system` - системы уровня ОС (RTOS, логирование, CLI)
+- `abl-mcu-platform-system` - системы уровня ОС (RTOS, логиров  ание, CLI)
 - `abl-mcu-platform-connect` - сетевые протоколы (HTTP, MQTT, TCP/IP)
 - `abl-mcu-platform-drivers` - драйверы периферии (сенсоры, дисплеи)
 

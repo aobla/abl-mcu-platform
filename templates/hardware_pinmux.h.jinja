@@ -1,0 +1,12 @@
+#ifndef HARDWARE_PINS_H
+#define HARDWARE_PINS_H
+
+/* Generated from YAML pin configuration */
+
+{% for pin_name, pin_config in pins.items() %}
+#define {{ pin_name.upper() }}_PORT {{ pin_config.port }}
+#define {{ pin_name.upper() }}_PIN {{ pin_config.pin }}
+#define {{ pin_name.upper() }}_PULL {% if pin_config.pull %}{{ pin_config.pull.upper() }}{% else %}NONE{% endif %}
+{% endfor %}
+
+#endif // HARDWARE_PINS_H
