@@ -5,17 +5,21 @@ set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 
 # ─── STM32 family detection ──────────────────────────────────────────────────
-if(PLATFORM MATCHES "^stm32f1")
-    set(STM32_FAMILY "f1")
-elseif(PLATFORM MATCHES "^stm32f4")
-    set(STM32_FAMILY "f4")
-elseif(PLATFORM MATCHES "^stm32h7")
-    set(STM32_FAMILY "h7")
-elseif(PLATFORM MATCHES "^stm32")
-    # Default to F4
-    set(STM32_FAMILY "f4")
+if(DEFINED PLATFORM)
+    if(PLATFORM MATCHES "^stm32f1")
+        set(STM32_FAMILY "f1")
+    elseif(PLATFORM MATCHES "^stm32f4")
+        set(STM32_FAMILY "f4")
+    elseif(PLATFORM MATCHES "^stm32h7")
+        set(STM32_FAMILY "h7")
+    elseif(PLATFORM MATCHES "^stm32")
+        set(STM32_FAMILY "f4")
+    else()
+        set(STM32_FAMILY "f4")
+    endif()
 else()
-    set(STM32_FAMILY "f4")
+    # During CMake compiler tests PLATFORM may not be set
+    set(STM32_FAMILY "f1")
 endif()
 
 # ─── STM32 HAL SDK resolution ────────────────────────────────────────────────
@@ -40,12 +44,37 @@ else()
 endif()
 
 if(STM32_SDK_ROOT)
-    set(STM32_INCLUDE_DIRS
-        "${STM32_SDK_ROOT}/Include"
-        "${STM32_SDK_ROOT}/CMSIS/Include"
-    )
+    # Определяем структуру SDK
+    # Вариант A: HAL-driver + cmsis_device + CMSIS_5 — Inc/ + CMSIS/Device/Include/ + CMSIS/CMSIS/Core/Include/
+    if(IS_DIRECTORY "${STM32_SDK_ROOT}/Inc")
+        set(STM32_INCLUDE_DIRS
+            "${STM32_SDK_ROOT}/Inc"
+            "${STM32_SDK_ROOT}/CMSIS/Device/Include"
+        )
+        # CMSIS core headers: CMSIS_5 repo → CMSIS/CMSIS/Core/Include/
+        if(IS_DIRECTORY "${STM32_SDK_ROOT}/CMSIS/CMSIS/Core/Include")
+            list(APPEND STM32_INCLUDE_DIRS
+                "${STM32_SDK_ROOT}/CMSIS/CMSIS/Core/Include"
+            )
+        endif()
+    # Вариант B: STM32Cube — Drivers/STM32*xx_HAL_Driver/Inc/ + Drivers/CMSIS/
+    elseif(IS_DIRECTORY "${STM32_SDK_ROOT}/Drivers")
+        set(STM32_INCLUDE_DIRS
+            "${STM32_SDK_ROOT}/Drivers/STM32${STM32_FAMILY_UPPER}xx_HAL_Driver/Inc"
+            "${STM32_SDK_ROOT}/Drivers/STM32${STM32_FAMILY_UPPER}xx_HAL_Driver/Inc/Legacy"
+            "${STM32_SDK_ROOT}/Drivers/CMSIS/Device/ST/STM32${STM32_FAMILY_UPPER}xx/Include"
+            "${STM32_SDK_ROOT}/Drivers/CMSIS/Include"
+        )
+    # Вариант C: cmsis_device репо — Include/ + CMSIS/Include/
+    else()
+        set(STM32_INCLUDE_DIRS
+            "${STM32_SDK_ROOT}/Include"
+            "${STM32_SDK_ROOT}/CMSIS/Include"
+        )
+    endif()
     message(STATUS "STM32 HAL SDK found: ${STM32_SDK_ROOT} (family: ${STM32_FAMILY})")
-else()
+elseif(CMAKE_PROJECT_NAME)
+    # Only warn when actually building (not during compiler tests)
     message(WARNING "STM32 HAL SDK not found for family ${STM32_FAMILY}. "
                     "Set ${SDK_ENV_VAR} or run: ./setup.sh -p ${PLATFORM}")
 endif()
@@ -85,22 +114,35 @@ if(NOT DEFINED STM32_MCU)
     set(STM32_MCU "cortex-m4")
 endif()
 
-# Если не определена FPU, используем значение по умолчанию
+# Если не определена FPU, определяем по MCU
 if(NOT DEFINED STM32_FPU)
-    set(STM32_FPU "fpv4-sp-d16")
+    if(STM32_MCU MATCHES "cortex-m4|cortex-m7")
+        set(STM32_FPU "fpv4-sp-d16")
+    else()
+        set(STM32_FPU "")
+    endif()
 endif()
 
-# Если не определен тип float ABI, используем значение по умолчанию
+# Если не определен тип float ABI
 if(NOT DEFINED STM32_FLOAT_ABI)
-    set(STM32_FLOAT_ABI "hard")
+    if(STM32_MCU MATCHES "cortex-m4|cortex-m7")
+        set(STM32_FLOAT_ABI "hard")
+    else()
+        set(STM32_FLOAT_ABI "soft")
+    endif()
 endif()
 
-set(COMMON_FLAGS "-mcpu=${STM32_MCU} -mthumb -mfpu=${STM32_FPU} -mfloat-abi=${STM32_FLOAT_ABI} -ffunction-sections -fdata-sections -fno-common -fmessage-length=0")
+set(COMMON_FLAGS "-mcpu=${STM32_MCU} -mthumb -ffunction-sections -fdata-sections -fno-common -fmessage-length=0")
+if(STM32_FPU)
+    set(COMMON_FLAGS "${COMMON_FLAGS} -mfpu=${STM32_FPU} -mfloat-abi=${STM32_FLOAT_ABI}")
+else()
+    set(COMMON_FLAGS "${COMMON_FLAGS} -mfloat-abi=${STM32_FLOAT_ABI}")
+endif()
 
 set(CMAKE_C_FLAGS_INIT "${COMMON_FLAGS} -std=gnu11")
 set(CMAKE_CXX_FLAGS_INIT "${COMMON_FLAGS} -std=gnu++17 -fno-rtti -fno-exceptions -fno-use-cxa-atexit")
 set(CMAKE_ASM_FLAGS_INIT "${COMMON_FLAGS} -x assembler-with-cpp")
-set(CMAKE_EXE_LINKER_FLAGS_INIT "-Wl,-gc-sections,--print-memory-usage -T ${CMAKE_BINARY_DIR}/generated/linker_script.ld -Wl,-Map=${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.map")
+# Линкер-скрипт задаётся в add_firmware_target после генерации
 
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)

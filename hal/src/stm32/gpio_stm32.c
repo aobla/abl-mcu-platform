@@ -1,5 +1,13 @@
 #include "hal/gpio.h"
-#include <stm32f4xx_hal.h>  // Включаем HAL STM32
+
+/* HAL header — selected by compile-time define from toolchain */
+#if defined(PLATFORM_STM32F1) || defined(PLATFORM_STM32F103)
+#include <stm32f1xx_hal.h>
+#elif defined(PLATFORM_STM32H7) || defined(PLATFORM_STM32H743)
+#include <stm32h7xx_hal.h>
+#else
+#include <stm32f4xx_hal.h>
+#endif
 
 // Внутренняя функция для преобразования номера пина в GPIO_TypeDef*
 static GPIO_TypeDef* get_port_from_handle(void* port) {
