@@ -45,16 +45,21 @@ endif()
 
 if(STM32_SDK_ROOT)
     # Определяем структуру SDK
-    # Вариант A: HAL-driver + cmsis_device + CMSIS_5 — Inc/ + CMSIS/Device/Include/ + CMSIS/CMSIS/Core/Include/
+    # Вариант A: HAL-driver + cmsis_device + CMSIS_5
     if(IS_DIRECTORY "${STM32_SDK_ROOT}/Inc")
         set(STM32_INCLUDE_DIRS
             "${STM32_SDK_ROOT}/Inc"
             "${STM32_SDK_ROOT}/CMSIS/Device/Include"
         )
-        # CMSIS core headers: CMSIS_5 repo → CMSIS/CMSIS/Core/Include/
+        # CMSIS core headers: CMSIS_5 → CMSIS/CMSIS/Core/Include/
         if(IS_DIRECTORY "${STM32_SDK_ROOT}/CMSIS/CMSIS/Core/Include")
             list(APPEND STM32_INCLUDE_DIRS
                 "${STM32_SDK_ROOT}/CMSIS/CMSIS/Core/Include"
+            )
+        # Или cmsis_device → CMSIS/Include/
+        elseif(IS_DIRECTORY "${STM32_SDK_ROOT}/CMSIS/Include")
+            list(APPEND STM32_INCLUDE_DIRS
+                "${STM32_SDK_ROOT}/CMSIS/Include"
             )
         endif()
     # Вариант B: STM32Cube — Drivers/STM32*xx_HAL_Driver/Inc/ + Drivers/CMSIS/

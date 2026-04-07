@@ -14,8 +14,6 @@ void hal_delay_ms(uint32_t ms) {
 }
 
 void hal_delay_us(uint32_t us) {
-    // Используем микроконтроллерный таймер для точной задержки
-    // Для STM32F4 с HCLK = 168MHz, 1 цикл ≈ 6ns
     volatile uint32_t cycles = us * (SystemCoreClock / 1000000U);
     while (cycles--) {
         __NOP();

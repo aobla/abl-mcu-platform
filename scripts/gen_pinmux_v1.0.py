@@ -57,7 +57,16 @@ def generate_pinmux_config(yaml_path, output_dir):
     # Генерируем generated_gpio_init.c с функцией инициализации GPIO
     gpio_init_template = """#include "hal/gpio.h"
 #include "hardware_config.h"
-#include "generated/hardware_pins.h"
+#include "hardware_pins.h"
+
+/* Include device-specific GPIO definitions */
+#ifdef PLATFORM_STM32F103
+#include <stm32f1xx_hal.h>
+#elif defined(PLATFORM_STM32F4)
+#include <stm32f4xx_hal.h>
+#elif defined(PLATFORM_STM32H743)
+#include <stm32h7xx_hal.h>
+#endif
 
 /**
  * @brief Сгенерированная функция инициализации GPIO пинов
@@ -65,7 +74,7 @@ def generate_pinmux_config(yaml_path, output_dir):
 void generated_gpio_init(void) {
     {% for pin_name, pin_config in pins.items() %}
     {
-        hal_gpio_pin_t {{ pin_name.lower() }}_pin = { (void*)&{{ pin_name.upper() }}_PORT, {{ pin_name.upper() }}_PIN };
+        hal_gpio_pin_t {{ pin_name.lower() }}_pin = { {{ pin_name.upper() }}_PORT, {{ pin_name.upper() }}_PIN };
         hal_gpio_mode_t mode = {% if pin_config.mode == 'input' %}HAL_GPIO_MODE_INPUT{% elif pin_config.mode == 'alt_function' %}HAL_GPIO_MODE_ALT_FUNCTION{% elif pin_config.mode == 'analog' %}HAL_GPIO_MODE_ANALOG{% else %}HAL_GPIO_MODE_OUTPUT{% endif %};
         hal_gpio_pull_t pull = {% if pin_config.pull == 'up' %}HAL_GPIO_PULL_UP{% elif pin_config.pull == 'down' %}HAL_GPIO_PULL_DOWN{% else %}HAL_GPIO_PULL_NONE{% endif %};
         hal_gpio_init(&{{ pin_name.lower() }}_pin, mode, pull);
