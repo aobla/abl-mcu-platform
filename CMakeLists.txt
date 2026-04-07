@@ -60,14 +60,14 @@ function(add_firmware_target)
         ${platformcore_SOURCE_DIR}/target/common
     )
 
+    # Project include/ directory
+    if(DEFINED HAL_CONFIG_DIR)
+        target_include_directories(${FW_NAME} PRIVATE ${HAL_CONFIG_DIR})
+    endif()
+
     # SDK include paths (from toolchain)
     if(DEFINED STM32_INCLUDE_DIRS)
         target_include_directories(${FW_NAME} PRIVATE ${STM32_INCLUDE_DIRS})
-    endif()
-
-    # Project HAL config (e.g. stm32f1xx_hal_conf.h)
-    if(DEFINED HAL_CONFIG_DIR)
-        target_include_directories(${FW_NAME} PRIVATE ${HAL_CONFIG_DIR})
     endif()
 
     # Добавляем библиотеку инициализации целевой платформы

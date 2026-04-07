@@ -55,18 +55,7 @@ def generate_pinmux_config(yaml_path, output_dir):
     print(f"Generated {pins_header_path}")
     
     # Генерируем generated_gpio_init.c с функцией инициализации GPIO
-    gpio_init_template = """#include "hal/gpio.h"
-#include "hardware_config.h"
-#include "hardware_pins.h"
-
-/* Include device-specific GPIO definitions */
-#ifdef PLATFORM_STM32F103
-#include <stm32f1xx_hal.h>
-#elif defined(PLATFORM_STM32F4)
-#include <stm32f4xx_hal.h>
-#elif defined(PLATFORM_STM32H743)
-#include <stm32h7xx_hal.h>
-#endif
+    gpio_init_template = """#include "app.h"
 
 /**
  * @brief Сгенерированная функция инициализации GPIO пинов

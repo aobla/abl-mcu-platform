@@ -30,21 +30,31 @@ def generate_hardware_config(config_data, output_dir):
 
 {% for key, value in config.items() %}
 {% if key == 'platform' %}
+#ifndef PLATFORM_{{ value.upper().replace('-', '_') }}
 #define PLATFORM_{{ value.upper().replace('-', '_') }}
+#endif
 {% elif key == 'cpu' %}
+#ifndef CPU_{{ value.upper().replace('-', '_').replace('.', '_') }}
 #define CPU_{{ value.upper().replace('-', '_').replace('.', '_') }}
+#endif
 {% elif key == 'frequencies' %}
 {% for freq_name, freq_value in value.items() %}
+#ifndef {{ freq_name.upper() }}_FREQ
 #define {{ freq_name.upper() }}_FREQ {{ freq_value }}
+#endif
 {% endfor %}
 {% elif key == 'memory' %}
 {% for mem_type, mem_value in value.items() %}
+#ifndef {{ mem_type.upper() }}_SIZE
 #define {{ mem_type.upper() }}_SIZE {{ mem_value }}
+#endif
 {% endfor %}
 {% elif key == 'features' %}
 {% for feature_name, feature_enabled in value.items() %}
 {% set clean_name = feature_name.upper().replace('ENABLE_', '') %}
+#ifndef CONFIG_{{ clean_name }}
 #define CONFIG_{{ clean_name }} {% if feature_enabled %}1{% else %}0{% endif %}
+#endif
 {% endfor %}
 {% endif %}
 {% endfor %}
