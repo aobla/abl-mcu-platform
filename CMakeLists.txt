@@ -11,7 +11,7 @@ add_subdirectory(target)
 # Функция для создания прошивки
 function(add_firmware_target)
     set(options "")
-    set(oneValueArgs NAME PLATFORM CONFIG PINMUX)
+    set(oneValueArgs NAME PLATFORM CONFIG PINMUX STARTUP_FILE LINKER_SCRIPT SYSTEM_FILE)
     set(multiValueArgs SOURCES)
     cmake_parse_arguments(FW "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
@@ -19,12 +19,38 @@ function(add_firmware_target)
     set(GEN_DIR ${CMAKE_BINARY_DIR}/generated)
 
     # ─── Firmware target ─────────────────────────────────────────────────────
-    add_executable(${FW_NAME}
+    set(FW_ALL_SOURCES
         ${FW_SOURCES}
         ${GEN_DIR}/generated_gpio_init.c
         ${GEN_DIR}/hardware_config.h
         ${GEN_DIR}/hardware_pins.h
     )
+
+    # Add startup file if provided
+    if(FW_STARTUP_FILE AND EXISTS "${FW_STARTUP_FILE}")
+        list(APPEND FW_ALL_SOURCES "${FW_STARTUP_FILE}")
+        set_source_files_properties("${FW_STARTUP_FILE}" PROPERTIES LANGUAGE ASM)
+    endif()
+
+    # Add system file if provided
+    if(FW_SYSTEM_FILE AND EXISTS "${FW_SYSTEM_FILE}")
+        list(APPEND FW_ALL_SOURCES "${FW_SYSTEM_FILE}")
+        # System file needs device defines (e.g. STM32F103xB)
+        if(FW_PLATFORM MATCHES "^stm32f1")
+            set(SYS_DEVICE "STM32F103xB")
+        elseif(FW_PLATFORM MATCHES "^stm32f4")
+            set(SYS_DEVICE "STM32F407xx")
+        elseif(FW_PLATFORM MATCHES "^stm32h7")
+            set(SYS_DEVICE "STM32H743xx")
+        else()
+            set(SYS_DEVICE "STM32F407xx")
+        endif()
+        set_source_files_properties("${FW_SYSTEM_FILE}" PROPERTIES
+            COMPILE_DEFINITIONS "${SYS_DEVICE};USE_HAL_DRIVER"
+        )
+    endif()
+
+    add_executable(${FW_NAME} ${FW_ALL_SOURCES})
 
     add_dependencies(${FW_NAME} generated_files)
 
@@ -47,11 +73,20 @@ function(add_firmware_target)
     # Добавляем библиотеку инициализации целевой платформы
     target_link_libraries(${FW_NAME} PRIVATE target_init)
 
-    # Разрешаем платформу в тулчейн-файл (для справки)
-    # Тулчейн уже включён в проекте ДО project(), параметры MCU заданы там
+    # Link HAL library for the platform
+    if(FW_PLATFORM MATCHES "^stm32")
+        target_link_libraries(${FW_NAME} PRIVATE hal_stm32)
+    elseif(FW_PLATFORM STREQUAL "esp32")
+        target_link_libraries(${FW_NAME} PRIVATE hal_esp32)
+    elseif(FW_PLATFORM STREQUAL "avr")
+        target_link_libraries(${FW_NAME} PRIVATE hal_avr)
+    endif()
 
-    # Линкер-флаги (после генерации скрипта)
-    set_target_properties(${FW_NAME} PROPERTIES
-        LINK_FLAGS "-Wl,-gc-sections,--print-memory-usage -T ${GEN_DIR}/linker_script.ld -Wl,-Map=${CMAKE_BINARY_DIR}/${FW_NAME}.map"
-    )
+    # Линкер-флаги
+    set(LINKER_FLAGS "-Wl,-gc-sections,--print-memory-usage") #-O3
+    if(FW_LINKER_SCRIPT AND EXISTS "${FW_LINKER_SCRIPT}")
+        set(LINKER_FLAGS "${LINKER_FLAGS} -T ${FW_LINKER_SCRIPT}")
+    endif()
+    set(LINKER_FLAGS "${LINKER_FLAGS} -Wl,-Map=${CMAKE_BINARY_DIR}/${FW_NAME}.map")
+    set_target_properties(${FW_NAME} PROPERTIES LINK_FLAGS "${LINKER_FLAGS}")
 endfunction()
