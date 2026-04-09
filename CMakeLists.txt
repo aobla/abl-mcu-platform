@@ -11,7 +11,7 @@ add_subdirectory(target)
 # Функция для создания прошивки
 function(add_firmware_target)
     set(options "")
-    set(oneValueArgs NAME PLATFORM CONFIG PINMUX STARTUP_FILE LINKER_SCRIPT SYSTEM_FILE)
+    set(oneValueArgs NAME PLATFORM CONFIG STARTUP_FILE LINKER_SCRIPT SYSTEM_FILE)
     set(multiValueArgs SOURCES)
     cmake_parse_arguments(FW "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
