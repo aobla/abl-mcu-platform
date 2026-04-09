@@ -55,20 +55,35 @@ def generate_pinmux_config(yaml_path, output_dir):
     print(f"Generated {pins_header_path}")
     
     # Генерируем generated_gpio_init.c с функцией инициализации GPIO
+    # Оптимизация: const таблица во FLASH + цикл, вместо локальных переменных на стеке
     gpio_init_template = """#include "app.h"
+
+/**
+ * @brief Таблица инициализации GPIO (хранится во FLASH, не тратит RAM)
+ */
+typedef struct {
+    void*         port;
+    uint16_t      pin;
+    hal_gpio_mode_t mode;
+    hal_gpio_pull_t pull;
+} gpio_init_entry_t;
+
+static const gpio_init_entry_t gpio_init_table[] = {
+{% for pin_name, pin_config in pins.items() %}
+    { {{ pin_name.upper() }}_PORT, {{ pin_name.upper() }}_PIN,
+      {% if pin_config.mode == 'input' %}HAL_GPIO_MODE_INPUT{% elif pin_config.mode == 'alt_function' %}HAL_GPIO_MODE_ALT_FUNCTION{% elif pin_config.mode == 'analog' %}HAL_GPIO_MODE_ANALOG{% else %}HAL_GPIO_MODE_OUTPUT{% endif %},
+      {% if pin_config.pull == 'up' %}HAL_GPIO_PULL_UP{% elif pin_config.pull == 'down' %}HAL_GPIO_PULL_DOWN{% else %}HAL_GPIO_PULL_NONE{% endif %} },
+{% endfor %}
+};
 
 /**
  * @brief Сгенерированная функция инициализации GPIO пинов
  */
 void generated_gpio_init(void) {
-    {% for pin_name, pin_config in pins.items() %}
-    {
-        hal_gpio_pin_t {{ pin_name.lower() }}_pin = { {{ pin_name.upper() }}_PORT, {{ pin_name.upper() }}_PIN };
-        hal_gpio_mode_t mode = {% if pin_config.mode == 'input' %}HAL_GPIO_MODE_INPUT{% elif pin_config.mode == 'alt_function' %}HAL_GPIO_MODE_ALT_FUNCTION{% elif pin_config.mode == 'analog' %}HAL_GPIO_MODE_ANALOG{% else %}HAL_GPIO_MODE_OUTPUT{% endif %};
-        hal_gpio_pull_t pull = {% if pin_config.pull == 'up' %}HAL_GPIO_PULL_UP{% elif pin_config.pull == 'down' %}HAL_GPIO_PULL_DOWN{% else %}HAL_GPIO_PULL_NONE{% endif %};
-        hal_gpio_init(&{{ pin_name.lower() }}_pin, mode, pull);
+    for (size_t i = 0; i < sizeof(gpio_init_table) / sizeof(gpio_init_table[0]); i++) {
+        hal_gpio_pin_t pin = { gpio_init_table[i].port, gpio_init_table[i].pin };
+        hal_gpio_init(&pin, gpio_init_table[i].mode, gpio_init_table[i].pull);
     }
-    {% endfor %}
 }
 """
     
