@@ -16,6 +16,12 @@ typedef enum {
     HAL_GPIO_PULL_DOWN
 } hal_gpio_pull_t;
 
+typedef enum {
+    HAL_GPIO_STATE_NONE,
+    HAL_GPIO_STATE_HIGH,
+    HAL_GPIO_STATE_LOW
+} hal_gpio_state_t;
+
 /**
  * @brief Generic GPIO pin handle
  *
@@ -32,21 +38,21 @@ typedef struct {
 /**
  * @brief Инициализирует GPIO пин
  */
-hal_status_t hal_gpio_init(hal_gpio_pin_t* pin, hal_gpio_mode_t mode, hal_gpio_pull_t pull);
+hal_status_t hal_gpio_init(hal_gpio_pin_t* pin, hal_gpio_mode_t mode, hal_gpio_pull_t pull, hal_gpio_state_t state);
 
 /**
  * @brief Записывает значение на GPIO пин
  */
-hal_status_t hal_gpio_write(hal_gpio_pin_t* pin, bool state);
+hal_status_t hal_gpio_write(const hal_gpio_pin_t* pin, bool state);
 
 /**
  * @brief Переключает состояние GPIO пина
  */
-hal_status_t hal_gpio_toggle(hal_gpio_pin_t* pin);
+hal_status_t hal_gpio_toggle(const hal_gpio_pin_t* pin);
 
 /**
  * @brief Считывает состояние GPIO пина
  */
-hal_status_t hal_gpio_read(hal_gpio_pin_t* pin, bool* state);
+hal_status_t hal_gpio_read(const hal_gpio_pin_t* pin, bool* state);
 
 #endif /* HAL_GPIO_H */

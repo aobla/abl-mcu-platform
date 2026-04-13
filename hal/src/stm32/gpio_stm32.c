@@ -13,7 +13,7 @@ static GPIO_TypeDef* get_port_from_handle(void* port) {
     return (GPIO_TypeDef*)port;
 }
 
-hal_status_t hal_gpio_init(hal_gpio_pin_t* pin, hal_gpio_mode_t mode, hal_gpio_pull_t pull) {
+hal_status_t hal_gpio_init(hal_gpio_pin_t* pin, hal_gpio_mode_t mode, hal_gpio_pull_t pull, hal_gpio_state_t state) {
     if (!pin || !pin->port) {
         return HAL_STATUS_ERROR;
     }
@@ -25,6 +25,40 @@ hal_status_t hal_gpio_init(hal_gpio_pin_t* pin, hal_gpio_mode_t mode, hal_gpio_p
 
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     GPIO_InitStruct.Pin = (1U << pin->pin);
+
+    if (gpio_port == GPIOA) {
+        if (__HAL_RCC_GPIOA_IS_CLK_DISABLED())
+            __HAL_RCC_GPIOA_CLK_ENABLE();
+    } else if (gpio_port == GPIOB) {
+        if (__HAL_RCC_GPIOB_IS_CLK_DISABLED())
+            __HAL_RCC_GPIOB_CLK_ENABLE();
+    } else if (gpio_port == GPIOC) {
+        if (__HAL_RCC_GPIOC_IS_CLK_DISABLED())
+            __HAL_RCC_GPIOC_CLK_ENABLE();
+    } else if (gpio_port == GPIOD) {
+        if (__HAL_RCC_GPIOD_IS_CLK_DISABLED())
+            __HAL_RCC_GPIOD_CLK_ENABLE();
+/** \todo add defines for for all series and ports */
+#if defined(ABL_DRV_ENABLE_STM32_SERIES_STM32F4)
+    } else if (gpio_port == GPIOE) {
+        if (__HAL_RCC_GPIOE_IS_CLK_DISABLED())
+            __HAL_RCC_GPIOE_CLK_ENABLE();
+    } else if (gpio_port == GPIOF) {
+        if (__HAL_RCC_GPIOF_IS_CLK_DISABLED())
+            __HAL_RCC_GPIOF_CLK_ENABLE();
+    } else if (gpio_port == GPIOG) {
+        if (__HAL_RCC_GPIOG_IS_CLK_DISABLED())
+            __HAL_RCC_GPIOG_CLK_ENABLE();
+    } else if (gpio_port == GPIOH) {
+        if (__HAL_RCC_GPIOH_IS_CLK_DISABLED())
+            __HAL_RCC_GPIOH_CLK_ENABLE();
+    } else if (gpio_port == GPIOI) {
+        if (__HAL_RCC_GPIOI_IS_CLK_DISABLED())
+            __HAL_RCC_GPIOI_CLK_ENABLE();
+#endif
+    } else {
+        return HAL_STATUS_ERROR;
+    }
 
     switch (mode) {
         case HAL_GPIO_MODE_INPUT:
@@ -60,10 +94,13 @@ hal_status_t hal_gpio_init(hal_gpio_pin_t* pin, hal_gpio_mode_t mode, hal_gpio_p
 
     HAL_GPIO_Init(gpio_port, &GPIO_InitStruct);
 
+    if (state != HAL_GPIO_PULL_NONE)
+        HAL_GPIO_WritePin(gpio_port, (1U << pin->pin), state == HAL_GPIO_STATE_HIGH ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
     return HAL_STATUS_OK;
 }
 
-hal_status_t hal_gpio_write(hal_gpio_pin_t* pin, bool state) {
+hal_status_t hal_gpio_write(const hal_gpio_pin_t* pin, bool state) {
     if (!pin || !pin->port) {
         return HAL_STATUS_ERROR;
     }
@@ -78,7 +115,7 @@ hal_status_t hal_gpio_write(hal_gpio_pin_t* pin, bool state) {
     return HAL_STATUS_OK;
 }
 
-hal_status_t hal_gpio_toggle(hal_gpio_pin_t* pin) {
+hal_status_t hal_gpio_toggle(const hal_gpio_pin_t* pin) {
     if (!pin || !pin->port) {
         return HAL_STATUS_ERROR;
     }
@@ -93,7 +130,7 @@ hal_status_t hal_gpio_toggle(hal_gpio_pin_t* pin) {
     return HAL_STATUS_OK;
 }
 
-hal_status_t hal_gpio_read(hal_gpio_pin_t* pin, bool* state) {
+hal_status_t hal_gpio_read(const hal_gpio_pin_t* pin, bool* state) {
     if (!pin || !pin->port || !state) {
         return HAL_STATUS_ERROR;
     }
