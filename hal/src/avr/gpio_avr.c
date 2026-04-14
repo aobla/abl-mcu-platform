@@ -1,4 +1,4 @@
-#include "hal/gpio.h"
+#include "abl_gpio.h"
 #include <avr/io.h>
 #include <util/delay.h>
 
@@ -34,52 +34,52 @@ static avr_port_regs* get_port_regs(void* port) {
     return (avr_port_regs*)&port_table[idx];
 }
 
-hal_status_t hal_gpio_init(hal_gpio_pin_t* pin, hal_gpio_mode_t mode, hal_gpio_pull_t pull) {
+abl_status_t abl_gpio_init(abl_gpio_pin_t* pin, abl_gpio_mode_t mode, abl_gpio_pull_t pull) {
     if (!pin) {
-        return HAL_STATUS_ERROR;
+        return ABL_STATUS_ERROR;
     }
 
     avr_port_regs* regs = get_port_regs(pin->port);
     if (!regs) {
-        return HAL_STATUS_ERROR;
+        return ABL_STATUS_ERROR;
     }
 
     uint8_t pin_mask = (1 << pin->pin);
 
     switch (mode) {
-        case HAL_GPIO_MODE_OUTPUT:
+        case ABL_GPIO_MODE_OUTPUT:
             *regs->ddr |= pin_mask;
             break;
 
-        case HAL_GPIO_MODE_INPUT:
+        case ABL_GPIO_MODE_INPUT:
             *regs->ddr &= ~pin_mask;
-            if (pull == HAL_GPIO_PULL_UP) {
+            if (pull == ABL_GPIO_PULL_UP) {
                 *regs->port |= pin_mask;
             } else {
                 *regs->port &= ~pin_mask;
             }
             break;
 
-        case HAL_GPIO_MODE_ALT_FUNCTION:
-        case HAL_GPIO_MODE_ANALOG:
+        case ABL_GPIO_MODE_ALT_FUNCTION:
+        case ABL_GPIO_MODE_ANALOG:
             *regs->ddr &= ~pin_mask;
             break;
 
         default:
-            return HAL_STATUS_ERROR;
+            return ABL_STATUS_ERROR;
     }
 
-    return HAL_STATUS_OK;
+    return ABL_STATUS_OK;
 }
 
-hal_status_t hal_gpio_write(hal_gpio_pin_t* pin, bool state) {
+abl_status_t abl_gpio_write(abl_gpio_pin_t* pin, bool state) {
     if (!pin) {
-        return HAL_STATUS_ERROR;
+        return ABL_STATUS_ERROR;
     }
 
     avr_port_regs* regs = get_port_regs(pin->port);
     if (!regs) {
-        return HAL_STATUS_ERROR;
+        return ABL_STATUS_ERROR;
     }
 
     uint8_t pin_mask = (1 << pin->pin);
@@ -90,37 +90,37 @@ hal_status_t hal_gpio_write(hal_gpio_pin_t* pin, bool state) {
         *regs->port &= ~pin_mask;
     }
 
-    return HAL_STATUS_OK;
+    return ABL_STATUS_OK;
 }
 
-hal_status_t hal_gpio_toggle(hal_gpio_pin_t* pin) {
+abl_status_t abl_gpio_toggle(abl_gpio_pin_t* pin) {
     if (!pin) {
-        return HAL_STATUS_ERROR;
+        return ABL_STATUS_ERROR;
     }
 
     avr_port_regs* regs = get_port_regs(pin->port);
     if (!regs) {
-        return HAL_STATUS_ERROR;
+        return ABL_STATUS_ERROR;
     }
 
     uint8_t pin_mask = (1 << pin->pin);
     *regs->pin |= pin_mask;
 
-    return HAL_STATUS_OK;
+    return ABL_STATUS_OK;
 }
 
-hal_status_t hal_gpio_read(hal_gpio_pin_t* pin, bool* state) {
+abl_status_t abl_gpio_read(abl_gpio_pin_t* pin, bool* state) {
     if (!pin || !state) {
-        return HAL_STATUS_ERROR;
+        return ABL_STATUS_ERROR;
     }
 
     avr_port_regs* regs = get_port_regs(pin->port);
     if (!regs) {
-        return HAL_STATUS_ERROR;
+        return ABL_STATUS_ERROR;
     }
 
     uint8_t pin_mask = (1 << pin->pin);
     *state = ((*regs->pin & pin_mask) != 0);
 
-    return HAL_STATUS_OK;
+    return ABL_STATUS_OK;
 }

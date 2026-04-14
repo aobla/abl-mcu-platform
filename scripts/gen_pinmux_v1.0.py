@@ -27,7 +27,7 @@ def generate_pinmux_config(yaml_path, output_dir):
     pins_template = """#ifndef HARDWARE_PINS_H
 #define HARDWARE_PINS_H
 
-#include "hal/common.h"
+#include "abl_common.h"
 
 /* Generated from YAML pin configuration */
 
@@ -46,7 +46,7 @@ def generate_pinmux_config(yaml_path, output_dir):
 
 /* ─── Static const pin handles (stored in FLASH, zero RAM) ────────────────── */
 {% for pin_name, pin_config in pins.items() %}
-static const hal_gpio_pin_t pin_{{ pin_name.lower() }} = { {{ pin_name.upper() }}_PORT, {{ pin_name.upper() }}_PIN };
+static const abl_gpio_pin_t pin_{{ pin_name.lower() }} = { {{ pin_name.upper() }}_PORT, {{ pin_name.upper() }}_PIN };
 {% endfor %}
 
 /* ─── Convenience macros ──────────────────────────────────────────────────── */
@@ -54,13 +54,13 @@ static const hal_gpio_pin_t pin_{{ pin_name.lower() }} = { {{ pin_name.upper() }
 #define PIN_GET(name) (&pin_##name)
 
 /** Toggle a pin by name */
-#define hal_gpio_toggle_pin(name)  hal_gpio_toggle(PIN_GET(name))
+#define abl_gpio_toggle_pin(name)  abl_gpio_toggle(PIN_GET(name))
 
 /** Write a pin by name */
-#define hal_gpio_write_pin(name, state)  hal_gpio_write(PIN_GET(name), state)
+#define abl_gpio_write_pin(name, state)  abl_gpio_write(PIN_GET(name), state)
 
 /** Read a pin by name */
-#define hal_gpio_read_pin(name, out)  hal_gpio_read(PIN_GET(name), out)
+#define abl_gpio_read_pin(name, out)  abl_gpio_read(PIN_GET(name), out)
 
 #endif // HARDWARE_PINS_H
 """
@@ -84,17 +84,17 @@ static const hal_gpio_pin_t pin_{{ pin_name.lower() }} = { {{ pin_name.upper() }
 typedef struct {
     void*         port;
     uint16_t      pin;
-    hal_gpio_mode_t mode;
-    hal_gpio_pull_t pull;
-    hal_gpio_state_t state;
+    abl_gpio_mode_t mode;
+    abl_gpio_pull_t pull;
+    abl_gpio_state_t state;
 } gpio_init_entry_t;
 
 static const gpio_init_entry_t gpio_init_table[] = {
 {% for pin_name, pin_config in pins.items() %}
     { {{ pin_name.upper() }}_PORT, {{ pin_name.upper() }}_PIN,
-      {% if pin_config.mode == 'input' %}HAL_GPIO_MODE_INPUT{% elif pin_config.mode == 'alt_function' %}HAL_GPIO_MODE_ALT_FUNCTION{% elif pin_config.mode == 'analog' %}HAL_GPIO_MODE_ANALOG{% else %}HAL_GPIO_MODE_OUTPUT{% endif %},
-      {% if pin_config.pull == 'up' %}HAL_GPIO_PULL_UP{% elif pin_config.pull == 'down' %}HAL_GPIO_PULL_DOWN{% else %}HAL_GPIO_PULL_NONE{% endif %},
-      {% if pin_config.state == 'high' %}HAL_GPIO_STATE_HIGH{% elif pin_config.state == 'low' %}HAL_GPIO_STATE_LOW{% else %}HAL_GPIO_STATE_NONE{% endif %} },
+      {% if pin_config.mode == 'input' %}ABL_GPIO_MODE_INPUT{% elif pin_config.mode == 'alt_function' %}ABL_GPIO_MODE_ALT_FUNCTION{% elif pin_config.mode == 'analog' %}ABL_GPIO_MODE_ANALOG{% else %}ABL_GPIO_MODE_OUTPUT{% endif %},
+      {% if pin_config.pull == 'up' %}ABL_GPIO_PULL_UP{% elif pin_config.pull == 'down' %}ABL_GPIO_PULL_DOWN{% else %}ABL_GPIO_PULL_NONE{% endif %},
+      {% if pin_config.state == 'high' %}ABL_GPIO_STATE_HIGH{% elif pin_config.state == 'low' %}ABL_GPIO_STATE_LOW{% else %}ABL_GPIO_STATE_NONE{% endif %} },
 {% endfor %}
 };
 
@@ -103,8 +103,8 @@ static const gpio_init_entry_t gpio_init_table[] = {
  */
 void generated_gpio_init(void) {
     for (size_t i = 0; i < sizeof(gpio_init_table) / sizeof(gpio_init_table[0]); i++) {
-        hal_gpio_pin_t pin = { gpio_init_table[i].port, gpio_init_table[i].pin };
-        hal_gpio_init(&pin, gpio_init_table[i].mode, gpio_init_table[i].pull, gpio_init_table[i].state);
+        abl_gpio_pin_t pin = { gpio_init_table[i].port, gpio_init_table[i].pin };
+        abl_gpio_init(&pin, gpio_init_table[i].mode, gpio_init_table[i].pull, gpio_init_table[i].state);
     }
 }
 """

@@ -1,5 +1,5 @@
-#ifndef TARGET_INIT_H
-#define TARGET_INIT_H
+#ifndef ABL_TARGET_INIT_H
+#define ABL_TARGET_INIT_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -12,25 +12,25 @@
  * - Настройка системного таймера
  * - Инициализация периферии
  */
-void target_init(void);
+void abl_target_init(void);
 
 /**
  * @brief Инициализация GPIO пинов
  * 
  * Инициализирует GPIO пины в соответствии с конфигурацией
  */
-void target_gpio_init(void);
+void abl_target_gpio_init(void);
 
 /**
  * @brief Задержка в миллисекундах
  *
  * @param ms Количество миллисекунд
  */
-void target_delay_ms(uint32_t ms);
+void abl_target_delay_ms(uint32_t ms);
 
 /**
  * @brief Сгенерированная функция инициализации GPIO (из YAML)
  */
 void generated_gpio_init(void);
 
-#endif // TARGET_INIT_H
+#endif // ABL_TARGET_INIT_H
