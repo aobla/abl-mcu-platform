@@ -70,6 +70,15 @@ function(add_firmware_target)
         target_include_directories(${FW_NAME} PRIVATE ${STM32_INCLUDE_DIRS})
     endif()
 
+    # Device define for STM32 HAL (required by stm32Xxxxx.h)
+    if(FW_PLATFORM MATCHES "^stm32f103")
+        target_compile_definitions(${FW_NAME} PRIVATE STM32F103x6)
+    elseif(FW_PLATFORM MATCHES "^stm32f4")
+        target_compile_definitions(${FW_NAME} PRIVATE STM32F407xx)
+    elseif(FW_PLATFORM MATCHES "^stm32h743")
+        target_compile_definitions(${FW_NAME} PRIVATE STM32H743xx)
+    endif()
+
     # Добавляем библиотеку инициализации целевой платформы
     target_link_libraries(${FW_NAME} PRIVATE target_init)
 
