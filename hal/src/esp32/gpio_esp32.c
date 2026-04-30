@@ -5,7 +5,7 @@ static gpio_num_t get_pin_from_handle(void* port) {
     return (gpio_num_t)(intptr_t)port;
 }
 
-abl_status_t abl_gpio_init(abl_gpio_pin_t* pin, abl_gpio_mode_t mode, abl_gpio_pull_t pull) {
+abl_status_t abl_gpio_init(abl_gpio_pin_t* pin, abl_gpio_mode_t mode, abl_gpio_pull_t pull, abl_gpio_state_t state) {
     if (!pin) {
         return ABL_STATUS_ERROR;
     }
@@ -60,7 +60,7 @@ abl_status_t abl_gpio_init(abl_gpio_pin_t* pin, abl_gpio_mode_t mode, abl_gpio_p
     return ABL_STATUS_OK;
 }
 
-abl_status_t abl_gpio_write(abl_gpio_pin_t* pin, bool state) {
+abl_status_t abl_gpio_write(const abl_gpio_pin_t* pin, bool state) {
     if (!pin) {
         return ABL_STATUS_ERROR;
     }
@@ -75,7 +75,7 @@ abl_status_t abl_gpio_write(abl_gpio_pin_t* pin, bool state) {
     return ABL_STATUS_OK;
 }
 
-abl_status_t abl_gpio_toggle(abl_gpio_pin_t* pin) {
+abl_status_t abl_gpio_toggle(const abl_gpio_pin_t* pin) {
     if (!pin) {
         return ABL_STATUS_ERROR;
     }
@@ -89,7 +89,7 @@ abl_status_t abl_gpio_toggle(abl_gpio_pin_t* pin) {
     return abl_gpio_write(pin, !current_state);
 }
 
-abl_status_t abl_gpio_read(abl_gpio_pin_t* pin, bool* state) {
+abl_status_t abl_gpio_read(const abl_gpio_pin_t* pin, bool* state) {
     if (!pin || !state) {
         return ABL_STATUS_ERROR;
     }
