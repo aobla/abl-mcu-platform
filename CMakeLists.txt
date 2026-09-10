@@ -4,9 +4,11 @@ project(abl-mcu-platform VERSION 1.0.0)
 include(cmake/helpers/version_check.cmake)
 include(cmake/helpers/target_helpers.cmake)
 
-# Добавляем HAL и Target в сборку
+# Bring-up (target_init) + SoC-provided startup/linker/system/hal_conf (D1)
+add_subdirectory(soc)
+
+# HAL ports (STM32 использует SOC_HAL_CONF_DIR из soc)
 add_subdirectory(hal)
-add_subdirectory(target)
 
 # Функция для создания прошивки
 function(add_firmware_target)
@@ -26,15 +28,29 @@ function(add_firmware_target)
         ${GEN_DIR}/hardware_pins.h
     )
 
+    # Bring-up files берём из SoC-дефиниции по умолчанию; проект может переопределить
+    set(_STARTUP_FILE "${FW_STARTUP_FILE}")
+    if(NOT _STARTUP_FILE)
+        set(_STARTUP_FILE "${SOC_STARTUP_FILE}")
+    endif()
+    set(_LINKER_SCRIPT "${FW_LINKER_SCRIPT}")
+    if(NOT _LINKER_SCRIPT)
+        set(_LINKER_SCRIPT "${SOC_LINKER_SCRIPT}")
+    endif()
+    set(_SYSTEM_FILE "${FW_SYSTEM_FILE}")
+    if(NOT _SYSTEM_FILE)
+        set(_SYSTEM_FILE "${SOC_SYSTEM_FILE}")
+    endif()
+
     # Add startup file if provided
-    if(FW_STARTUP_FILE AND EXISTS "${FW_STARTUP_FILE}")
-        list(APPEND FW_ALL_SOURCES "${FW_STARTUP_FILE}")
-        set_source_files_properties("${FW_STARTUP_FILE}" PROPERTIES LANGUAGE ASM)
+    if(_STARTUP_FILE AND EXISTS "${_STARTUP_FILE}")
+        list(APPEND FW_ALL_SOURCES "${_STARTUP_FILE}")
+        set_source_files_properties("${_STARTUP_FILE}" PROPERTIES LANGUAGE ASM)
     endif()
 
     # Add system file if provided
-    if(FW_SYSTEM_FILE AND EXISTS "${FW_SYSTEM_FILE}")
-        list(APPEND FW_ALL_SOURCES "${FW_SYSTEM_FILE}")
+    if(_SYSTEM_FILE AND EXISTS "${_SYSTEM_FILE}")
+        list(APPEND FW_ALL_SOURCES "${_SYSTEM_FILE}")
         # System file needs device defines (e.g. STM32F103xB)
         if(FW_PLATFORM MATCHES "^stm32f103")
             set(SYS_DEVICE "STM32F103x6")
@@ -45,7 +61,7 @@ function(add_firmware_target)
         else()
             set(SYS_DEVICE "STM32F407xx")
         endif()
-        set_source_files_properties("${FW_SYSTEM_FILE}" PROPERTIES
+        set_source_files_properties("${_SYSTEM_FILE}" PROPERTIES
             COMPILE_DEFINITIONS "${SYS_DEVICE};USE_HAL_DRIVER"
         )
     endif()
@@ -57,12 +73,12 @@ function(add_firmware_target)
     target_include_directories(${FW_NAME} PRIVATE ${GEN_DIR})
     target_include_directories(${FW_NAME} PRIVATE
         ${platformcore_SOURCE_DIR}/hal/include
-        ${platformcore_SOURCE_DIR}/target/common
+        ${platformcore_SOURCE_DIR}/soc/include
     )
 
-    # Project include/ directory
-    if(DEFINED HAL_CONFIG_DIR)
-        target_include_directories(${FW_NAME} PRIVATE ${HAL_CONFIG_DIR})
+    # SoC-provided HAL config (stm32f1xx_hal_conf.h и т.п.)
+    if(DEFINED SOC_HAL_CONF_DIR AND SOC_HAL_CONF_DIR)
+        target_include_directories(${FW_NAME} PRIVATE ${SOC_HAL_CONF_DIR})
     endif()
 
     # SDK include paths (from toolchain)
@@ -93,8 +109,8 @@ function(add_firmware_target)
 
     # Линкер-флаги
     set(LINKER_FLAGS "-Wl,-gc-sections,--print-memory-usage") #-O3
-    if(FW_LINKER_SCRIPT AND EXISTS "${FW_LINKER_SCRIPT}")
-        set(LINKER_FLAGS "${LINKER_FLAGS} -T ${FW_LINKER_SCRIPT}")
+    if(_LINKER_SCRIPT AND EXISTS "${_LINKER_SCRIPT}")
+        set(LINKER_FLAGS "${LINKER_FLAGS} -T ${_LINKER_SCRIPT}")
     endif()
     set(LINKER_FLAGS "${LINKER_FLAGS} -Wl,-Map=${CMAKE_BINARY_DIR}/${FW_NAME}.map")
     set_target_properties(${FW_NAME} PROPERTIES LINK_FLAGS "${LINKER_FLAGS}")

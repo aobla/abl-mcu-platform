@@ -9,6 +9,11 @@ target_include_directories(hal_stm32 PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../../include
 )
 
+# SoC-provided HAL config (stm32f1xx_hal_conf.h и т.п.)
+if(DEFINED SOC_HAL_CONF_DIR AND SOC_HAL_CONF_DIR)
+    target_include_directories(hal_stm32 PUBLIC ${SOC_HAL_CONF_DIR})
+endif()
+
 # STM32 HAL SDK пути устанавливаются из тулчейна
 if(DEFINED STM32_INCLUDE_DIRS)
     target_include_directories(hal_stm32 PUBLIC ${STM32_INCLUDE_DIRS})
