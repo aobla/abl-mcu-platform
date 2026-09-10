@@ -4,21 +4,12 @@
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 
-# ─── STM32 family detection ──────────────────────────────────────────────────
-if(DEFINED PLATFORM)
-    if(PLATFORM MATCHES "^stm32f1")
-        set(STM32_FAMILY "f1")
-    elseif(PLATFORM MATCHES "^stm32f4")
-        set(STM32_FAMILY "f4")
-    elseif(PLATFORM MATCHES "^stm32h7")
-        set(STM32_FAMILY "h7")
-    elseif(PLATFORM MATCHES "^stm32")
-        set(STM32_FAMILY "f4")
-    else()
-        set(STM32_FAMILY "f4")
-    endif()
+# ─── STM32 family ────────────────────────────────────────────────────────────
+# Источник — SoC-дефиниция; проект резолвит её до project() (R3).
+if(DEFINED ABL_SOC_FAMILY AND NOT ABL_SOC_FAMILY STREQUAL "")
+    set(STM32_FAMILY "${ABL_SOC_FAMILY}")
 else()
-    # During CMake compiler tests PLATFORM may not be set
+    # Standalone toolchain use / compiler tests: безопасный дефолт
     set(STM32_FAMILY "f1")
 endif()
 

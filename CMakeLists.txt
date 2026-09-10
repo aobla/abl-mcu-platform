@@ -51,18 +51,9 @@ function(add_firmware_target)
     # Add system file if provided
     if(_SYSTEM_FILE AND EXISTS "${_SYSTEM_FILE}")
         list(APPEND FW_ALL_SOURCES "${_SYSTEM_FILE}")
-        # System file needs device defines (e.g. STM32F103xB)
-        if(FW_PLATFORM MATCHES "^stm32f103")
-            set(SYS_DEVICE "STM32F103x6")
-        elseif(FW_PLATFORM MATCHES "^stm32f4")
-            set(SYS_DEVICE "STM32F407xx")
-        elseif(FW_PLATFORM MATCHES "^stm32h7")
-            set(SYS_DEVICE "STM32H743xx")
-        else()
-            set(SYS_DEVICE "STM32F407xx")
-        endif()
+        # System file needs the device define from the SoC definition (R3)
         set_source_files_properties("${_SYSTEM_FILE}" PROPERTIES
-            COMPILE_DEFINITIONS "${SYS_DEVICE};USE_HAL_DRIVER"
+            COMPILE_DEFINITIONS "${SOC_DEVICE};USE_HAL_DRIVER"
         )
     endif()
 
@@ -86,13 +77,9 @@ function(add_firmware_target)
         target_include_directories(${FW_NAME} PRIVATE ${STM32_INCLUDE_DIRS})
     endif()
 
-    # Device define for STM32 HAL (required by stm32Xxxxx.h)
-    if(FW_PLATFORM MATCHES "^stm32f103")
-        target_compile_definitions(${FW_NAME} PRIVATE STM32F103x6)
-    elseif(FW_PLATFORM MATCHES "^stm32f4")
-        target_compile_definitions(${FW_NAME} PRIVATE STM32F407xx)
-    elseif(FW_PLATFORM MATCHES "^stm32h743")
-        target_compile_definitions(${FW_NAME} PRIVATE STM32H743xx)
+    # Device define for STM32 HAL (required by stm32Xxxxx.h) — из SoC-дефиниции (R3)
+    if(DEFINED SOC_DEVICE AND SOC_DEVICE)
+        target_compile_definitions(${FW_NAME} PRIVATE ${SOC_DEVICE})
     endif()
 
     # Добавляем библиотеку инициализации целевой платформы
