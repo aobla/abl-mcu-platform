@@ -11,6 +11,8 @@ soc/
 │   ├── stm32_target_init.c          # тактирование + SysTick + abl_target_init() (STM32)
 │   └── <family>/<variant>/          # SoC-дефиниция (пример: f1/STM32F103x6)
 │       ├── soc.cmake                # device, core, fpu, hal_prefix, файлы bring-up
+│       ├── clock.c                  # тактирование этого SoC (soc_clock_init)
+│       ├── soc_hal.h                # vendor-заголовок семейства
 │       ├── startup_*.s
 │       ├── system_*.c
 │       ├── *_FLASH.ld

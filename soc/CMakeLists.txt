@@ -12,7 +12,11 @@ if(PLATFORM MATCHES "^stm32")
         message(FATAL_ERROR "soc: MCU_PART не задан (mcu.part в board-конфиге)")
     endif()
     abl_soc_resolve("${MCU_PART}" ABL_SOC)
-    set(SOC_TARGET_INIT_SRC ${SOC_DIR}/stm32/stm32_target_init.c)
+    # Общий bring-up + конкретика SoC (тактирование) — из SoC-дефиниции (R3)
+    set(SOC_TARGET_INIT_SRC
+        ${SOC_DIR}/stm32/stm32_target_init.c
+        ${ABL_SOC_DIR}/clock.c
+    )
     set(SOC_HAL_CONF_DIR  "${ABL_SOC_HAL_CONF_DIR}")
     set(SOC_DEVICE        "${ABL_SOC_DEVICE}")
     set(SOC_HAL_PREFIX    "${ABL_SOC_HAL_PREFIX}")
@@ -60,8 +64,9 @@ if(PLATFORM MATCHES "^stm32")
     if(DEFINED STM32_INCLUDE_DIRS)
         target_include_directories(target_init PUBLIC ${STM32_INCLUDE_DIRS})
     endif()
+    # PLATFORM_* здесь не нужен: общий bring-up не знает о платформе (R2)
     target_compile_definitions(target_init PRIVATE
-        PLATFORM_${PLATFORM_UPPER} USE_HAL_DRIVER ${SOC_DEVICE}
+        USE_HAL_DRIVER ${SOC_DEVICE}
     )
 elseif(PLATFORM STREQUAL "avr")
     target_compile_definitions(target_init PRIVATE PLATFORM_AVR)
