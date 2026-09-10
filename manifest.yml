@@ -1,0 +1,13 @@
+# manifest.yml
+# Единый манифест зависимостей платформы (эволюция prerequisites.yaml из проектов).
+# Здесь фиксируются версии vendor-SDK и тулчейнов по тегам (D2, ARCHITECTURE §5).
+#
+# Заполняется и подключается на Шагах 2/11 миграции. Пока — заглушка структуры.
+
+vendor: {}
+  # stm32f1-hal: { git: ..., tag: ... }
+  # esp-idf: { git: ..., tag: v5.2.2 }
+
+toolchains: {}
+  # arm-none-eabi-gcc: { min: "12.0" }
+  # avr-gcc: { min: "5.0" }

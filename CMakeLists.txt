@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(abl-mcu-platform-core VERSION 1.0.0)
+project(abl-mcu-platform VERSION 1.0.0)
 
 include(cmake/helpers/version_check.cmake)
 include(cmake/helpers/target_helpers.cmake)
