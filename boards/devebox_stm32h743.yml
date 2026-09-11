@@ -1,0 +1,30 @@
+# Board-дефиниция: DEVEBOX STM32H743VIT6
+#
+# ФИЗИКА платы (D9): что реально распаяно. Использование пинов — overlay проекта.
+
+board:
+  name: devebox_stm32h743
+  description: "DEVEBOX STM32H743VIT6, HSE 25 МГц"
+
+platform: stm32h743
+mcu:
+  part: STM32H743VIT6        # единственный ключ → SoC-дефиниция (R3)
+cpu: cortex-m7
+
+oscillator:
+  source: hse
+  freq_hz: 25000000
+
+frequencies:
+  hclk: 400000000
+  pclk1: 200000000
+  pclk2: 200000000
+
+memory:
+  flash: 2097152
+  ram: 1048576
+
+onboard:
+  led0:      { port: GPIOA, pin: 1,  mode: output, state: low }   # бортовой LED
+  usart1_tx: { port: GPIOB, pin: 14, mode: alt_function }         # AF-номер — Шаг 8
+  usart1_rx: { port: GPIOB, pin: 15, mode: alt_function }

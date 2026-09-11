@@ -1,0 +1,35 @@
+# Board-дефиниция: Blue Pill (STM32F103C6T6)
+#
+# ФИЗИКА платы (D9): что реально распаяно. Использование пинов конкретным
+# приложением описывается overlay'ем проекта (config/<product>.yml, секция pins).
+# Настройки приложения здесь размещать нельзя.
+
+board:
+  name: bluepill_stm32f103
+  description: "Blue Pill, STM32F103C6T6, HSE 8 МГц"
+
+platform: stm32f103          # build/toolchain kind (SoC выбирается по mcu.part)
+mcu:
+  part: STM32F103C6T6        # единственный ключ → SoC-дефиниция (R3)
+cpu: cortex-m3
+
+oscillator:
+  source: hse
+  freq_hz: 8000000
+
+frequencies:
+  hclk: 72000000
+  pclk1: 36000000
+  pclk2: 72000000
+
+memory:
+  flash: 32768               # 32 KB (вариант C6)
+  ram: 10240                 # 10 KB
+
+# Распаянное на плате железо — канонические onboard-алиасы.
+# Пины описываются по одному; многопиновые ресурсы (USART целиком) — расширение на будущее.
+onboard:
+  led0:      { port: GPIOC, pin: 13, mode: output, state: low }   # бортовой LED
+  btn0:      { port: GPIOA, pin: 0,  mode: input,  pull: up }     # кнопка
+  usart1_tx: { port: GPIOA, pin: 9,  mode: alt_function }         # AF-номер — Шаг 8
+  usart1_rx: { port: GPIOA, pin: 10, mode: alt_function }

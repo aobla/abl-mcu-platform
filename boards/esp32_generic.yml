@@ -1,0 +1,26 @@
+# Board-дефиниция: обобщённая плата ESP32 (перенос из проекта, Шаг 5)
+#
+# TODO: ESP32-порт переводится на обёртку ESP-IDF на Шаге 9.
+
+board:
+  name: esp32_generic
+  description: "Обобщённая плата ESP32, 240 МГц"
+
+platform: esp32
+mcu:
+  part: ESP32
+cpu: xtensa-lx6
+
+frequencies:
+  cpu_freq: 240000000
+  apb_freq: 80000000
+
+memory:
+  flash: 4194304
+  ram: 524288
+
+# Для ESP32 port — номер GPIO (см. hal/src/esp32).
+onboard:
+  led0:      { port: 2, pin: 0, mode: output }
+  usart1_tx: { port: 1, pin: 0, mode: alt_function }
+  usart1_rx: { port: 3, pin: 0, mode: alt_function }

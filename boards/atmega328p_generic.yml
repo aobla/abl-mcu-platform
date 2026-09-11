@@ -1,0 +1,29 @@
+# Board-дефиниция: обобщённая плата ATmega328P (перенос из проекта, Шаг 5)
+#
+# TODO: AVR-порт чинится на Шаге 8 (SoC-дефиниция, target_init, HAL-сигнатуры).
+
+board:
+  name: atmega328p_generic
+  description: "Обобщённая плата ATmega328P, 16 МГц"
+
+platform: avr
+mcu:
+  part: ATmega328P
+cpu: atmega328p
+
+oscillator:
+  source: hse
+  freq_hz: 16000000
+
+frequencies:
+  cpu_freq: 16000000
+
+memory:
+  flash: 32768
+  ram: 2048
+
+# Для AVR port — индекс порта в таблице HAL (0=PORTB, 1=PORTC, ...), см. hal/src/avr.
+onboard:
+  led0:      { port: 0, pin: 5, mode: output }
+  usart1_tx: { port: 2, pin: 1, mode: alt_function }
+  usart1_rx: { port: 2, pin: 0, mode: alt_function }
