@@ -7,6 +7,7 @@
  * Ни одного #ifdef PLATFORM_* здесь нет: новый МК добавляется без правки этого файла.
  */
 
+#include "abl_app.h"
 #include "abl_target_init.h"
 #include "soc_hal.h"
 #include "soc_clock.h"
@@ -38,4 +39,15 @@ void abl_target_gpio_init(void)
 void abl_target_delay_ms(uint32_t ms)
 {
     HAL_Delay(ms);
+}
+
+/**
+ * @brief Платформенный трaмполин (D7).
+ *
+ * Startup вызывает main(); приложение живёт в переносимой abl_main().
+ */
+int main(void)
+{
+    abl_main();
+    return 0;
 }

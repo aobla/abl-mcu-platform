@@ -356,7 +356,7 @@ abl-mcu-project-blink/
 1. **Монорепо (D2):** реструктуризация `abl-mcu-platform-core` в схему раздела 7; имя репо/манифеста → `abl-mcu-platform`; обновить пути в `manifest.yml`/`prerequisites.yaml`. ✅
 2. **Перенос bring-up (D1):** `target/stm32/*` + `target/stm32/extra/*` + `include/stm32*_hal_conf.h` → `soc/`; тактирование — в soc-дефиниции. ✅
 3. **Единый ключ (R3):** маппинг `mcu.part → device define/startup/linker/clock` в одном месте; удалить дубли из 5 CMake-файлов. ✅
-4. **Точка входа (D7):** `main.c` → `abl_main()`; трaмполины `main` в `soc/`.
+4. **Точка входа (D7):** `main.c` → `abl_main()`; трaмполины `main` в `soc/`. ✅ (STM32 — готово; AVR-трaмполин — Шаг 8, ESP32 `app_main` — Шаг 9)
 5. **Board/App-модель (D5, D9):** `config/platform/*_board.yml` → `boards/*.yml` (физика + onboard-алиасы); проектный конфиг → `config/app.yml` (`product.board` + overlay `pins` + `features`/`params`); кодогенератор объединяет board + overlay.
 6. **Компоненты (D4):** `abl_component()`; публичные include; сгенерированные файлы самодостаточны (убрать зависимость от `app.h`).
 7. **Рантайм (D6):** контракт + бэкенд `bare`; `abl_delay_*` переводится на контракт (на STM32+bare — systick/DWT, не `HAL_Delay` в долгую).
