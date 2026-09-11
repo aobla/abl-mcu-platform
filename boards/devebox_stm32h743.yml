@@ -26,5 +26,5 @@ memory:
 
 onboard:
   led0:      { port: GPIOA, pin: 1,  mode: output, state: low }   # бортовой LED
-  usart1_tx: { port: GPIOB, pin: 14, mode: alt_function }         # AF-номер — Шаг 8
-  usart1_rx: { port: GPIOB, pin: 15, mode: alt_function }
+  usart1_tx: { port: GPIOB, pin: 14, mode: alt_function, af: 4 }  # USART1_TX (AF4)
+  usart1_rx: { port: GPIOB, pin: 15, mode: alt_function, af: 4 }  # USART1_RX (AF4)

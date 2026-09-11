@@ -44,7 +44,8 @@ set(COMMON_FLAGS "${MCU_FLAG} -Wall -g2 -Os -fsigned-char -funsigned-bitfields -
 set(CMAKE_C_FLAGS_INIT "${COMMON_FLAGS} -std=gnu11")
 set(CMAKE_CXX_FLAGS_INIT "${COMMON_FLAGS} -std=gnu++17 -fno-rtti -fno-exceptions -fno-use-cxa-atexit")
 set(CMAKE_ASM_FLAGS_INIT "${COMMON_FLAGS} -x assembler-with-cpp")
-set(CMAKE_EXE_LINKER_FLAGS_INIT "-Wl,-gc-sections,--print-memory-usage -T ${CMAKE_BINARY_DIR}/generated/linker_script.ld -Wl,-Map=${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.map")
+# No custom linker script: avr-gcc selects the device default from -mmcu.
+set(CMAKE_EXE_LINKER_FLAGS_INIT "-Wl,-gc-sections,--print-memory-usage -Wl,-Map=${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.map")
 
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)

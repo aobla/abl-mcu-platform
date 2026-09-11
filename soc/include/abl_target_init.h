@@ -22,13 +22,6 @@ void abl_target_init(void);
 void abl_target_gpio_init(void);
 
 /**
- * @brief Задержка в миллисекундах
- *
- * @param ms Количество миллисекунд
- */
-void abl_target_delay_ms(uint32_t ms);
-
-/**
  * @brief Сгенерированная функция инициализации GPIO (из YAML)
  */
 void generated_gpio_init(void);

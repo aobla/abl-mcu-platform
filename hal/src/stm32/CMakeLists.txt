@@ -10,10 +10,11 @@ endif()
 
 set(HAL_VENDOR_SOURCES "")
 if(DEFINED STM32_SDK_ROOT AND IS_DIRECTORY "${STM32_SDK_ROOT}/Src")
-    # Minimal set: core + GPIO + RCC + Cortex
+    # Minimal set: core + GPIO + EXTI + RCC + Cortex
     foreach(_name
             ${SOC_HAL_PREFIX}_hal
             ${SOC_HAL_PREFIX}_hal_gpio
+            ${SOC_HAL_PREFIX}_hal_exti
             ${SOC_HAL_PREFIX}_hal_rcc
             ${SOC_HAL_PREFIX}_hal_rcc_ex
             ${SOC_HAL_PREFIX}_hal_cortex)

@@ -36,11 +36,6 @@ void abl_target_gpio_init(void)
     generated_gpio_init();
 }
 
-void abl_target_delay_ms(uint32_t ms)
-{
-    HAL_Delay(ms);
-}
-
 /**
  * @brief Платформенный трaмполин (D7).
  *

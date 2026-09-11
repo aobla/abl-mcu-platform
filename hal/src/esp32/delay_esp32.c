@@ -1,15 +1,22 @@
-#include "abl_delay.h"
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
+/**
+ * @brief ESP32 delay primitives (L1).
+ *
+ * Busy-wait only (see the contract): sleeping that yields the CPU belongs to
+ * the runtime backend (vTaskDelay), not here.
+ */
 
-void abl_delay_ms(uint32_t ms) {
-    vTaskDelay(pdMS_TO_TICKS(ms));
+#include "abl_delay.h"
+
+#include "esp_rom_sys.h"
+
+void abl_delay_us(uint32_t us)
+{
+    esp_rom_delay_us(us);
 }
 
-void abl_delay_us(uint32_t us) {
-    /* ESP-IDF doesn't have a direct usleep, use busy wait for small delays */
-    volatile uint32_t cycles = us * 80;  /* ~80 cycles per us at 240MHz */
-    while (cycles--) {
-        asm volatile("nop");
+void abl_delay_ms(uint32_t ms)
+{
+    while (ms-- > 0U) {
+        esp_rom_delay_us(1000U);
     }
 }

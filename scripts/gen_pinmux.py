@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """
-Генерация pinmux из board + overlay проекта (D5/D9).
+Pinmux generation from the board + the project overlay (D5/D9).
 
     gen_pinmux.py <board.yml> <app.yml>
 
-  board.yml — onboard: { <alias>: {port, pin, mode, pull, state} }   (физика платы)
-  app.yml   — pins:    { <logical>: {use: <alias>, ...} | {port, pin, ...} }  (overlay)
+  board.yml — onboard: { <alias>: {port, pin, mode, pull, state, speed, otype, af} }
+  app.yml   — pins:    { <logical>: {use: <alias>, ...} | {port, pin, ...} }
 
-Выход: ./generated/hardware_pins.h, ./generated/generated_gpio_init.c
+Output: ./generated/hardware_pins.h, ./generated/generated_gpio_init.c
 
-Проверки (ошибка конфигурации вместо «чуда» на железе):
-  - use: ссылается на несуществующий onboard-ресурс;
-  - у явного пина нет port/pin;
-  - недопустимые mode/pull/state или некорректное имя;
-  - два логических пина проекта на одном физическом пине.
+Checks (configuration errors instead of surprises on hardware):
+  - use: points to an unknown onboard resource;
+  - an explicit pin has no port/pin;
+  - invalid mode/pull/state/speed/otype/af or a non-identifier name;
+  - two logical pins of the project resolve to the same physical pin.
+
+Note: the generated code is platform-bound (port macros such as GPIOC), which is
+why it includes the SoC-provided vendor header (soc_hal.h) itself.
 """
 
 import os
@@ -27,6 +30,8 @@ from jinja2 import Template
 VALID_MODES = ("input", "output", "alt_function", "analog")
 VALID_PULLS = ("none", "up", "down")
 VALID_STATES = ("none", "high", "low")
+VALID_SPEEDS = ("low", "medium", "high", "very_high")
+VALID_OTYPES = ("push_pull", "open_drain")
 
 MODE_MAP = {
     "input": "ABL_GPIO_MODE_INPUT",
@@ -44,6 +49,16 @@ STATE_MAP = {
     "high": "ABL_GPIO_STATE_HIGH",
     "low": "ABL_GPIO_STATE_LOW",
 }
+SPEED_MAP = {
+    "low": "ABL_GPIO_SPEED_LOW",
+    "medium": "ABL_GPIO_SPEED_MEDIUM",
+    "high": "ABL_GPIO_SPEED_HIGH",
+    "very_high": "ABL_GPIO_SPEED_VERY_HIGH",
+}
+OTYPE_MAP = {
+    "push_pull": "ABL_GPIO_OTYPE_PUSH_PULL",
+    "open_drain": "ABL_GPIO_OTYPE_OPEN_DRAIN",
+}
 
 IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -51,9 +66,9 @@ PINS_TEMPLATE = """#ifndef HARDWARE_PINS_H
 #define HARDWARE_PINS_H
 
 #include "abl_gpio.h"
-#include "soc_hal.h"   /* макросы портов (GPIOC и т.п.) — из SoC-дефиниции */
+#include "soc_hal.h"   /* port macros (GPIOC, ...) from the SoC definition */
 
-/* Сгенерировано из board + app overlay — не редактировать вручную. */
+/* Generated from board + app overlay — do not edit by hand. */
 
 {% for name, p in pins.items() %}
 #define {{ name|upper }}_PORT  {{ p.port_literal }}
@@ -61,15 +76,18 @@ PINS_TEMPLATE = """#ifndef HARDWARE_PINS_H
 #define {{ name|upper }}_MODE  {{ p.mode_macro }}
 #define {{ name|upper }}_PULL  {{ p.pull_macro }}
 #define {{ name|upper }}_STATE {{ p.state_macro }}
+#define {{ name|upper }}_SPEED {{ p.speed_macro }}
+#define {{ name|upper }}_OTYPE {{ p.otype_macro }}
+#define {{ name|upper }}_AF    {{ p.af }}
 {% endfor %}
 
-/* ─── Хэндлы пинов (во FLASH, без расхода RAM) ──────────────────────────── */
+/* ─── Pin handles (kept in FLASH, no RAM cost) ──────────────────────────── */
 {% for name, p in pins.items() %}
 static const abl_gpio_pin_t pin_{{ name }} = { {{ name|upper }}_PORT, {{ name|upper }}_PIN };
 {% endfor %}
 
-/* ─── Удобные макросы ───────────────────────────────────────────────────── */
-/** Указатель на хэндл пина по имени */
+/* ─── Convenience macros ────────────────────────────────────────────────── */
+/** Pointer to a pin handle by name */
 #define PIN_GET(name) (&pin_##name)
 
 #define abl_gpio_toggle_pin(name)        abl_gpio_toggle(PIN_GET(name))
@@ -83,34 +101,32 @@ GPIO_INIT_TEMPLATE = """#include "hardware_pins.h"    /* + abl_gpio.h, soc_hal.h
 #include "abl_target_init.h"
 #include <stddef.h>
 
-/* Сгенерировано из board + app overlay — не редактировать вручную. */
+/* Generated from board + app overlay — do not edit by hand. */
 
 {% if pins %}
 typedef struct {
-    void*            port;
-    uint16_t         pin;
-    abl_gpio_mode_t  mode;
-    abl_gpio_pull_t  pull;
-    abl_gpio_state_t state;
+    abl_gpio_pin_t pin;
+    abl_gpio_cfg_t cfg;
 } gpio_init_entry_t;
 
 static const gpio_init_entry_t gpio_init_table[] = {
 {% for name, p in pins.items() %}
-    { {{ name|upper }}_PORT, {{ name|upper }}_PIN, {{ p.mode_macro }}, {{ p.pull_macro }}, {{ p.state_macro }} },
+    { { {{ name|upper }}_PORT, {{ name|upper }}_PIN },
+      { {{ name|upper }}_MODE, {{ name|upper }}_PULL, {{ name|upper }}_STATE,
+        {{ name|upper }}_SPEED, {{ name|upper }}_OTYPE, {{ name|upper }}_AF } },
 {% endfor %}
 };
 
 void generated_gpio_init(void)
 {
     for (size_t i = 0; i < sizeof(gpio_init_table) / sizeof(gpio_init_table[0]); i++) {
-        abl_gpio_pin_t pin = { gpio_init_table[i].port, gpio_init_table[i].pin };
-        abl_gpio_init(&pin, gpio_init_table[i].mode, gpio_init_table[i].pull, gpio_init_table[i].state);
+        (void)abl_gpio_configure(&gpio_init_table[i].pin, &gpio_init_table[i].cfg);
     }
 }
 {% else %}
 void generated_gpio_init(void)
 {
-    /* Проект не использует пинов (секция pins в app-конфиге пуста). */
+    /* The project does not use any pin (empty 'pins' section in the app config). */
 }
 {% endif %}
 """
@@ -127,9 +143,9 @@ def load_yaml(path, what):
 
 
 def port_literal(port):
-    """Числовой порт (AVR-индекс, ESP32 GPIO) → указатель; строковый (GPIOC) — как есть."""
+    """Numeric port (AVR index, ESP32 GPIO) -> pointer; string (GPIOC) as is."""
     if isinstance(port, bool):
-        raise ValueError("port не может быть bool")
+        raise ValueError("port must not be a boolean")
     if isinstance(port, int):
         return f"((void*)(uintptr_t){port})"
     return str(port)
@@ -142,64 +158,74 @@ def resolve_pins(board, app):
     resolved = {}
 
     if not isinstance(onboard, dict):
-        return {}, ["board: 'onboard' должен быть словарём"]
+        return {}, ["board: 'onboard' must be a mapping"]
     if not isinstance(overlay, dict):
-        return {}, ["app: 'pins' должен быть словарём"]
+        return {}, ["app: 'pins' must be a mapping"]
 
-    available = ", ".join(sorted(onboard)) or "—"
+    available = ", ".join(sorted(onboard)) or "-"
 
     for logical, spec in overlay.items():
         if not IDENT_RE.match(str(logical)):
-            errors.append(f"pins.{logical}: имя должно быть C-идентификатором")
+            errors.append(f"pins.{logical}: name must be a C identifier")
             continue
         if not isinstance(spec, dict):
-            errors.append(f"pins.{logical}: должен быть словарём")
+            errors.append(f"pins.{logical}: must be a mapping")
             continue
 
         if "use" in spec:
             ref = spec["use"]
             if ref not in onboard:
                 errors.append(
-                    f"pins.{logical}: use: '{ref}' не найден в onboard платы "
-                    f"(доступно: {available})"
+                    f"pins.{logical}: use: '{ref}' is not an onboard resource "
+                    f"(available: {available})"
                 )
                 continue
             base = onboard[ref]
             if not isinstance(base, dict):
-                errors.append(f"board.onboard.{ref}: должен быть словарём")
+                errors.append(f"board.onboard.{ref}: must be a mapping")
                 continue
             base = dict(base)
-            source = f"use: {ref}"
         else:
             if "port" not in spec or "pin" not in spec:
                 errors.append(
-                    f"pins.{logical}: нужен 'use: <onboard-алиас>' "
-                    f"либо явные 'port' и 'pin'"
+                    f"pins.{logical}: needs 'use: <onboard alias>' "
+                    f"or explicit 'port' and 'pin'"
                 )
                 continue
             base = {"port": spec["port"], "pin": spec["pin"]}
-            source = "явный пин"
 
-        # Необязательные переопределения из overlay
-        for key in ("mode", "pull", "state"):
+        # Optional overrides coming from the project overlay
+        for key in ("mode", "pull", "state", "speed", "otype", "af"):
             if key in spec:
                 base[key] = spec[key]
 
         base.setdefault("mode", "output")
         base.setdefault("pull", "none")
         base.setdefault("state", "none")
+        base.setdefault("speed", "low")
+        base.setdefault("otype", "push_pull")
+        base.setdefault("af", 0)
 
         if base["mode"] not in VALID_MODES:
-            errors.append(f"pins.{logical}: недопустимый mode '{base['mode']}' (допустимо: {', '.join(VALID_MODES)})")
+            errors.append(f"pins.{logical}: invalid mode '{base['mode']}' (valid: {', '.join(VALID_MODES)})")
             continue
         if base["pull"] not in VALID_PULLS:
-            errors.append(f"pins.{logical}: недопустимый pull '{base['pull']}' (допустимо: {', '.join(VALID_PULLS)})")
+            errors.append(f"pins.{logical}: invalid pull '{base['pull']}' (valid: {', '.join(VALID_PULLS)})")
             continue
         if base["state"] not in VALID_STATES:
-            errors.append(f"pins.{logical}: недопустимый state '{base['state']}' (допустимо: {', '.join(VALID_STATES)})")
+            errors.append(f"pins.{logical}: invalid state '{base['state']}' (valid: {', '.join(VALID_STATES)})")
+            continue
+        if base["speed"] not in VALID_SPEEDS:
+            errors.append(f"pins.{logical}: invalid speed '{base['speed']}' (valid: {', '.join(VALID_SPEEDS)})")
+            continue
+        if base["otype"] not in VALID_OTYPES:
+            errors.append(f"pins.{logical}: invalid otype '{base['otype']}' (valid: {', '.join(VALID_OTYPES)})")
             continue
         if not isinstance(base["pin"], int) or isinstance(base["pin"], bool) or base["pin"] < 0:
-            errors.append(f"pins.{logical}: 'pin' должен быть неотрицательным целым")
+            errors.append(f"pins.{logical}: 'pin' must be a non-negative integer")
+            continue
+        if not isinstance(base["af"], int) or isinstance(base["af"], bool) or not 0 <= base["af"] <= 15:
+            errors.append(f"pins.{logical}: 'af' must be an integer in 0..15")
             continue
 
         try:
@@ -211,16 +237,17 @@ def resolve_pins(board, app):
         base["mode_macro"] = MODE_MAP[base["mode"]]
         base["pull_macro"] = PULL_MAP[base["pull"]]
         base["state_macro"] = STATE_MAP[base["state"]]
-        base["source"] = source
+        base["speed_macro"] = SPEED_MAP[base["speed"]]
+        base["otype_macro"] = OTYPE_MAP[base["otype"]]
         resolved[str(logical)] = base
 
-    # Конфликты внутри проекта: два логических пина на одном физическом
+    # Conflicts inside the project: two logical pins on one physical pin
     seen = {}
     for logical, spec in resolved.items():
         key = (str(spec["port"]), spec["pin"])
         if key in seen:
             errors.append(
-                f"конфликт пинов: '{logical}' и '{seen[key]}' используют "
+                f"pin conflict: '{logical}' and '{seen[key]}' both use "
                 f"port={spec['port']}, pin={spec['pin']}"
             )
         else:
@@ -244,7 +271,7 @@ def main():
         sys.exit(1)
 
     if not pins:
-        print("Warning: app.pins пуст — ни один пин не будет инициализирован", file=sys.stderr)
+        print("Warning: app.pins is empty — no pin will be initialised", file=sys.stderr)
 
     out_dir = Path(os.getcwd()) / "generated"
     out_dir.mkdir(parents=True, exist_ok=True)

@@ -243,14 +243,14 @@ params:  { blink_period_ms: 250 }    # параметры бизнес-логи�
 
 | Контракт | Статус | Замечания |
 |---|---|---|
-| `abl_gpio` | есть | доработать: прерывания (EXTI), AF-номер, скорость, open-drain/push-pull |
-| `abl_delay` | есть | переработать точность: DWT (Cortex-M), `esp_rom_delay_us` (ESP32); не хардкодить тактовую частоту |
+| `abl_gpio` | есть | `configure` (mode/pull/state/speed/otype/AF) + прерывания через EXTI (STM32); AVR/ESP32 — в пределах возможностей платформы |
+| `abl_delay` | есть | busy-wait: DWT cycle counter (Cortex-M), `_delay_*` (AVR), `esp_rom_delay_us` (ESP32); не зависит от SysTick |
 | `abl_time` (тик) | есть | `abl_time_init` + `abl_time_uptime_ms` (STM32 — HAL tick, ESP32 — esp_timer, AVR — Шаг 8) |
 | `abl_uart` | план | контракт шины — в первую очередь |
 | `abl_spi` | план | контракт шины — в первую очередь |
 | `abl_i2c` | план | контракт шины — в первую очередь |
 | `abl_adc`, `abl_pwm` | план | |
-| `abl_critical` (ISR/атомарность) | план | нужен драйверам сразу |
+| `abl_critical` (ISR/атомарность) | есть | PRIMASK save/restore (STM32), SREG (AVR), interrupt mask (ESP32) |
 | `abl_runtime` | есть (`bare`) | sleep/uptime/task/run; mutex/queue/timer и `freertos` — по мере потребителей (Шаг 9) |
 
 ---
@@ -364,7 +364,7 @@ abl-mcu-project-blink/
 5. **Board/App-модель (D5, D9):** `config/platform/*_board.yml` → `boards/*.yml` (физика + onboard-алиасы); проектный конфиг → `config/app.yml` (`product.board` + overlay `pins` + `features`/`params`); кодогенератор объединяет board + overlay. ✅
 6. **Компоненты (D4):** `abl_component()`; публичные include; сгенерированные файлы самодостаточны (убрать зависимость от `app.h`). ✅
 7. **Рантайм (D6):** контракт + бэкенд `bare`; `abl_delay_*` переводится на контракт (на STM32+bare — systick/DWT, не `HAL_Delay` в долгую). ✅ (sleep/uptime/task/run; `freertos` — Шаг 9)
-8. **HAL-фиксы:** сигнатуры AVR (конфликт `const`/арность `init`), точность задержек (DWT, `esp_rom_delay_us`), расширение `abl_gpio` (прерывания, AF-номер).
+8. **HAL-фиксы:** сигнатуры AVR (конфликт `const`/арность `init`), точность задержек (DWT, `esp_rom_delay_us`), расширение `abl_gpio` (прерывания, AF-номер). ✅ (AVR структурно исправлен, но **не собран** — в окружении нет `avr-gcc` и сети; нужен `./setup.sh -p avr`)
 9. **ESP32 (D3):** `target/esp32/` обёртка; `abl_main`/`app_main`; сборка `idf.py`; кодогенерация в IDF-сборке.
 10. **Кодогенерация:** `templates/*.jinja` становятся единственным источником; `gen_linker` удаляется; `hardware_pins.h` включает `abl_gpio.h`.
 11. **Чистка:** `:Zone.Identifier`, мёртвые helper-функции, починка CMakePresets, `LICENSES.md` (D10), синхронизация README с этим документом.

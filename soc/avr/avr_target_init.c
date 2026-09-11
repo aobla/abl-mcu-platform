@@ -1,16 +1,19 @@
-#include "app.h"
+/**
+ * @brief AVR bring-up (L1) for ATmega328P-class devices.
+ *
+ * The clock source is selected by the fuse bits, so bring-up only initialises
+ * the generated GPIO table and provides the platform trampoline (D7).
+ */
 
-#ifdef PLATFORM_AVR
+#include "abl_app.h"
+#include "abl_target_init.h"
 
 #include <avr/io.h>
 
-// Сгенерированная функция инициализации GPIO
-extern void generated_gpio_init(void);
-
 void abl_target_init(void)
 {
-    /* Тактирование AVR задаётся fuse битами — инициализация не требуется */
-    target_gpio_init();
+    /* Clocking comes from the fuses: nothing to configure here. */
+    abl_target_gpio_init();
 }
 
 void abl_target_gpio_init(void)
@@ -18,9 +21,12 @@ void abl_target_gpio_init(void)
     generated_gpio_init();
 }
 
-void abl_target_delay_ms(uint32_t ms)
+/**
+ * @brief Platform trampoline (D7): the C runtime calls main(), the application
+ *        lives in the portable abl_main().
+ */
+int main(void)
 {
-    hal_delay_ms(ms);
+    abl_main();
+    return 0;
 }
-
-#endif /* PLATFORM_AVR */

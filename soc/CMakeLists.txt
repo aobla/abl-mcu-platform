@@ -24,7 +24,9 @@ if(PLATFORM MATCHES "^stm32")
     set(SOC_LINKER_SCRIPT "${ABL_SOC_LINKER}")
     set(SOC_SYSTEM_FILE   "${ABL_SOC_SYSTEM}")
 elseif(PLATFORM STREQUAL "avr")
-    # TODO (Step 8): avr_target_init.c still includes app.h.
+    if(NOT DEFINED F_CPU_HZ OR F_CPU_HZ STREQUAL "")
+        message(FATAL_ERROR "soc: F_CPU_HZ is not set (oscillator.freq_hz in the board config)")
+    endif()
     set(SOC_SOURCES ${SOC_DIR}/avr/avr_target_init.c)
     set(SOC_HAL_CONF_DIR "")
     set(SOC_DEVICE "")
@@ -67,10 +69,12 @@ if(PLATFORM MATCHES "^stm32")
                  USE_HAL_DRIVER
     )
 elseif(PLATFORM STREQUAL "avr")
+    # F_CPU is exported PUBLIC: the HAL port and the application need it for
+    # _delay_* and for any code timing based on the CPU clock.
     abl_component(soc
-        SOURCES         ${SOC_SOURCES}
-        INCLUDES        ${SOC_DIR}/include
-        PRIVATE_DEFINES PLATFORM_AVR
+        SOURCES  ${SOC_SOURCES}
+        INCLUDES ${SOC_DIR}/include
+        DEFINES  F_CPU=${F_CPU_HZ}
     )
 elseif(PLATFORM STREQUAL "esp32")
     abl_component(soc

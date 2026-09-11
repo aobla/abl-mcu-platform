@@ -27,6 +27,7 @@
 
 /* ─── Module headers (only what we use) ───────────────────────────────────── */
 #include "stm32f1xx_hal_gpio.h"
+#include "stm32f1xx_hal_exti.h"
 #include "stm32f1xx_hal_rcc.h"
 #include "stm32f1xx_hal_rcc_ex.h"
 #include "stm32f1xx_hal_cortex.h"
@@ -36,6 +37,8 @@
 /* ─── Modules ─────────────────────────────────────────────────────────────── */
 #define HAL_MODULE_ENABLED
 #define HAL_GPIO_MODULE_ENABLED
+/* EXTI is required by the abl_gpio interrupt API (Step 8). */
+#define HAL_EXTI_MODULE_ENABLED
 #define HAL_RCC_MODULE_ENABLED
 #define HAL_CORTEX_MODULE_ENABLED
 
