@@ -245,19 +245,21 @@ params:  { blink_period_ms: 250 }    # параметры бизнес-логи�
 |---|---|---|
 | `abl_gpio` | есть | доработать: прерывания (EXTI), AF-номер, скорость, open-drain/push-pull |
 | `abl_delay` | есть | переработать точность: DWT (Cortex-M), `esp_rom_delay_us` (ESP32); не хардкодить тактовую частоту |
-| `abl_time` (тики, software-таймеры) | план | поверх рантайма |
+| `abl_time` (тик) | есть | `abl_time_init` + `abl_time_uptime_ms` (STM32 — HAL tick, ESP32 — esp_timer, AVR — Шаг 8) |
 | `abl_uart` | план | контракт шины — в первую очередь |
 | `abl_spi` | план | контракт шины — в первую очередь |
 | `abl_i2c` | план | контракт шины — в первую очередь |
 | `abl_adc`, `abl_pwm` | план | |
 | `abl_critical` (ISR/атомарность) | план | нужен драйверам сразу |
-| `abl_runtime` | план | раздел 11 |
+| `abl_runtime` | есть (`bare`) | sleep/uptime/task/run; mutex/queue/timer и `freertos` — по мере потребителей (Шаг 9) |
 
 ---
 
 ## 11. Рантайм (D6)
 
 Контракт `abl_runtime.h` покрывает: sleep (ms/us), task, mutex, semaphore, queue, software-таймер, critical section.
+
+**Реализовано на Шаге 7:** `abl_sleep_ms/us`, `abl_uptime_ms`, `abl_task_create`, `abl_runtime_run` в бэкенде `bare`; выбор бэкенда — `product.runtime` в app-конфиге проекта. mutex/semaphore/queue/timer и critical sections добавляются вместе с первыми потребителями; `freertos`-бэкенд — Шаг 9 (см. `runtime/src/freertos/README.md`).
 
 | Примитив | `bare` (суперлуп) | `freertos` |
 |---|---|---|
@@ -361,7 +363,7 @@ abl-mcu-project-blink/
 4. **Точка входа (D7):** `main.c` → `abl_main()`; трaмполины `main` в `soc/`. ✅ (STM32 — готово; AVR-трaмполин — Шаг 8, ESP32 `app_main` — Шаг 9)
 5. **Board/App-модель (D5, D9):** `config/platform/*_board.yml` → `boards/*.yml` (физика + onboard-алиасы); проектный конфиг → `config/app.yml` (`product.board` + overlay `pins` + `features`/`params`); кодогенератор объединяет board + overlay. ✅
 6. **Компоненты (D4):** `abl_component()`; публичные include; сгенерированные файлы самодостаточны (убрать зависимость от `app.h`). ✅
-7. **Рантайм (D6):** контракт + бэкенд `bare`; `abl_delay_*` переводится на контракт (на STM32+bare — systick/DWT, не `HAL_Delay` в долгую).
+7. **Рантайм (D6):** контракт + бэкенд `bare`; `abl_delay_*` переводится на контракт (на STM32+bare — systick/DWT, не `HAL_Delay` в долгую). ✅ (sleep/uptime/task/run; `freertos` — Шаг 9)
 8. **HAL-фиксы:** сигнатуры AVR (конфликт `const`/арность `init`), точность задержек (DWT, `esp_rom_delay_us`), расширение `abl_gpio` (прерывания, AF-номер).
 9. **ESP32 (D3):** `target/esp32/` обёртка; `abl_main`/`app_main`; сборка `idf.py`; кодогенерация в IDF-сборке.
 10. **Кодогенерация:** `templates/*.jinja` становятся единственным источником; `gen_linker` удаляется; `hardware_pins.h` включает `abl_gpio.h`.

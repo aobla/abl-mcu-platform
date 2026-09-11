@@ -4,9 +4,10 @@ project(abl-mcu-platform VERSION 1.0.0)
 include(cmake/helpers/version_check.cmake)
 include(cmake/helpers/component.cmake)
 
-# Components (D4): soc (bring-up) -> hal (contracts + port) -> drivers.
+# Components (D4): soc (bring-up) -> hal (contracts + port) -> runtime -> drivers.
 add_subdirectory(soc)
 add_subdirectory(hal)
+add_subdirectory(runtime)
 add_subdirectory(drivers)
 
 # ─── Firmware target ─────────────────────────────────────────────────────────
@@ -59,9 +60,9 @@ function(add_firmware_target)
     # Per-build generated headers
     target_include_directories(${FW_NAME} PRIVATE ${GEN_DIR})
 
-    # Platform components: SoC bring-up + the active HAL port.
+    # Platform components: SoC bring-up + active HAL port + runtime backend (D6).
     # Drivers are linked by the project itself: target_link_libraries(... abl::<driver>)
-    target_link_libraries(${FW_NAME} PRIVATE abl::soc abl::active)
+    target_link_libraries(${FW_NAME} PRIVATE abl::soc abl::active abl::runtime)
 
     # Linker flags
     set(LINKER_FLAGS "-Wl,-gc-sections,--print-memory-usage")
