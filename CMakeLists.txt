@@ -2,25 +2,26 @@ cmake_minimum_required(VERSION 3.20)
 project(abl-mcu-platform VERSION 1.0.0)
 
 include(cmake/helpers/version_check.cmake)
-include(cmake/helpers/target_helpers.cmake)
+include(cmake/helpers/component.cmake)
 
-# Bring-up (target_init) + SoC-provided startup/linker/system/hal_conf (D1)
+# Components (D4): soc (bring-up) -> hal (contracts + port) -> drivers.
 add_subdirectory(soc)
-
-# HAL ports (STM32 использует SOC_HAL_CONF_DIR из soc)
 add_subdirectory(hal)
+add_subdirectory(drivers)
 
-# Функция для создания прошивки
+# ─── Firmware target ─────────────────────────────────────────────────────────
+# Builds the firmware from the project sources + generated files and links the
+# platform components. Include dirs, device defines and SDK paths are inherited
+# transitively from the components' PUBLIC interface (D4, R7).
 function(add_firmware_target)
     set(options "")
-    set(oneValueArgs NAME PLATFORM CONFIG STARTUP_FILE LINKER_SCRIPT SYSTEM_FILE)
+    set(oneValueArgs NAME PLATFORM STARTUP_FILE LINKER_SCRIPT SYSTEM_FILE)
     set(multiValueArgs SOURCES)
     cmake_parse_arguments(FW "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     # Generated files are created by the project CMakeLists.txt before this call
     set(GEN_DIR ${CMAKE_BINARY_DIR}/generated)
 
-    # ─── Firmware target ─────────────────────────────────────────────────────
     set(FW_ALL_SOURCES
         ${FW_SOURCES}
         ${GEN_DIR}/generated_gpio_init.c
@@ -28,7 +29,7 @@ function(add_firmware_target)
         ${GEN_DIR}/hardware_pins.h
     )
 
-    # Bring-up files берём из SoC-дефиниции по умолчанию; проект может переопределить
+    # Bring-up files come from the SoC definition by default; a project may override
     set(_STARTUP_FILE "${FW_STARTUP_FILE}")
     if(NOT _STARTUP_FILE)
         set(_STARTUP_FILE "${SOC_STARTUP_FILE}")
@@ -42,60 +43,28 @@ function(add_firmware_target)
         set(_SYSTEM_FILE "${SOC_SYSTEM_FILE}")
     endif()
 
-    # Add startup file if provided
     if(_STARTUP_FILE AND EXISTS "${_STARTUP_FILE}")
         list(APPEND FW_ALL_SOURCES "${_STARTUP_FILE}")
         set_source_files_properties("${_STARTUP_FILE}" PROPERTIES LANGUAGE ASM)
     endif()
 
-    # Add system file if provided
     if(_SYSTEM_FILE AND EXISTS "${_SYSTEM_FILE}")
         list(APPEND FW_ALL_SOURCES "${_SYSTEM_FILE}")
-        # System file needs the device define from the SoC definition (R3)
-        set_source_files_properties("${_SYSTEM_FILE}" PROPERTIES
-            COMPILE_DEFINITIONS "${SOC_DEVICE};USE_HAL_DRIVER"
-        )
     endif()
 
     add_executable(${FW_NAME} ${FW_ALL_SOURCES})
 
     add_dependencies(${FW_NAME} generated_files)
 
+    # Per-build generated headers
     target_include_directories(${FW_NAME} PRIVATE ${GEN_DIR})
-    target_include_directories(${FW_NAME} PRIVATE
-        ${platformcore_SOURCE_DIR}/hal/include
-        ${platformcore_SOURCE_DIR}/soc/include
-    )
 
-    # SoC-provided HAL config (stm32f1xx_hal_conf.h и т.п.)
-    if(DEFINED SOC_HAL_CONF_DIR AND SOC_HAL_CONF_DIR)
-        target_include_directories(${FW_NAME} PRIVATE ${SOC_HAL_CONF_DIR})
-    endif()
+    # Platform components: SoC bring-up + the active HAL port.
+    # Drivers are linked by the project itself: target_link_libraries(... abl::<driver>)
+    target_link_libraries(${FW_NAME} PRIVATE abl::soc abl::active)
 
-    # SDK include paths (from toolchain)
-    if(DEFINED STM32_INCLUDE_DIRS)
-        target_include_directories(${FW_NAME} PRIVATE ${STM32_INCLUDE_DIRS})
-    endif()
-
-    # Device define for STM32 HAL (required by stm32Xxxxx.h) — из SoC-дефиниции (R3)
-    if(DEFINED SOC_DEVICE AND SOC_DEVICE)
-        target_compile_definitions(${FW_NAME} PRIVATE ${SOC_DEVICE})
-    endif()
-
-    # Добавляем библиотеку инициализации целевой платформы
-    target_link_libraries(${FW_NAME} PRIVATE target_init)
-
-    # Link HAL library for the platform
-    if(FW_PLATFORM MATCHES "^stm32")
-        target_link_libraries(${FW_NAME} PRIVATE hal_stm32)
-    elseif(FW_PLATFORM STREQUAL "esp32")
-        target_link_libraries(${FW_NAME} PRIVATE hal_esp32)
-    elseif(FW_PLATFORM STREQUAL "avr")
-        target_link_libraries(${FW_NAME} PRIVATE hal_avr)
-    endif()
-
-    # Линкер-флаги
-    set(LINKER_FLAGS "-Wl,-gc-sections,--print-memory-usage") #-O3
+    # Linker flags
+    set(LINKER_FLAGS "-Wl,-gc-sections,--print-memory-usage")
     if(_LINKER_SCRIPT AND EXISTS "${_LINKER_SCRIPT}")
         set(LINKER_FLAGS "${LINKER_FLAGS} -T ${_LINKER_SCRIPT}")
     endif()

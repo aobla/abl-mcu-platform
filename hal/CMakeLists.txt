@@ -1,7 +1,11 @@
 # hal/CMakeLists.txt
-# Сборка HAL для выбранной платформы
+# HAL contracts (L2) + port selection (L1).
 
-# Определяем платформу из переменной PLATFORM
+# Contracts are header-only. Drivers depend on this component, never on a
+# concrete port or vendor HAL (R4).
+abl_component(hal INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# ─── Port selection ──────────────────────────────────────────────────────────
 if(PLATFORM MATCHES "^stm32.*")
     set(HAL_PLATFORM "stm32")
 elseif(PLATFORM STREQUAL "esp32")
@@ -14,5 +18,5 @@ endif()
 
 add_subdirectory(src/${HAL_PLATFORM})
 
-# Создаем псевдоним для активной платформы
-add_library(hal::active ALIAS hal_${HAL_PLATFORM})
+# Alias for the active port (linked by add_firmware_target)
+add_library(abl::active ALIAS abl_hal_${HAL_PLATFORM})

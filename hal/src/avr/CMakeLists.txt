@@ -1,12 +1,9 @@
 # hal/src/avr/CMakeLists.txt
-# Сборка HAL для AVR
+# AVR HAL port (L1). TODO (Step 8): the AVR port is not buildable yet.
 
-file(GLOB_RECURSE AVR_HAL_SOURCES *.c)
+file(GLOB_RECURSE HAL_PORT_SOURCES *.c)
 
-add_library(hal_avr STATIC ${AVR_HAL_SOURCES})
-
-target_include_directories(hal_avr PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include
+abl_component(hal_avr
+    SOURCES ${HAL_PORT_SOURCES}
+    DEPS    abl::hal
 )
-
-# AVR libc доступна через тулчейн автоматически
