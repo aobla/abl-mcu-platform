@@ -7,12 +7,14 @@
 
 #include "abl_app.h"
 #include "abl_target_init.h"
+#include "abl_time.h"
 
 #include <avr/io.h>
 
 void abl_target_init(void)
 {
-    /* Clocking comes from the fuses: nothing to configure here. */
+    /* Clocking comes from the fuses: only the tick needs setting up. */
+    (void)abl_time_init();
     abl_target_gpio_init();
 }
 

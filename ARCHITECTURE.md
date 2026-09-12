@@ -251,7 +251,7 @@ params:  { blink_period_ms: 250 }    # параметры бизнес-логи�
 | `abl_i2c` | план | контракт шины — в первую очередь |
 | `abl_adc`, `abl_pwm` | план | |
 | `abl_critical` (ISR/атомарность) | есть | PRIMASK save/restore (STM32), SREG (AVR), interrupt mask (ESP32) |
-| `abl_runtime` | есть (`bare`) | sleep/uptime/task/run; mutex/queue/timer и `freertos` — по мере потребителей (Шаг 9) |
+| `abl_runtime` | есть (`bare`, `freertos`) | sleep/uptime/task/run; `freertos` используется ESP32 (Шаг 9); mutex/queue/timer — по мере потребителей |
 
 ---
 
@@ -259,7 +259,7 @@ params:  { blink_period_ms: 250 }    # параметры бизнес-логи�
 
 Контракт `abl_runtime.h` покрывает: sleep (ms/us), task, mutex, semaphore, queue, software-таймер, critical section.
 
-**Реализовано на Шаге 7:** `abl_sleep_ms/us`, `abl_uptime_ms`, `abl_task_create`, `abl_runtime_run` в бэкенде `bare`; выбор бэкенда — `product.runtime` в app-конфиге проекта. mutex/semaphore/queue/timer и critical sections добавляются вместе с первыми потребителями; `freertos`-бэкенд — Шаг 9 (см. `runtime/src/freertos/README.md`).
+**Реализовано:** `abl_sleep_ms/us`, `abl_uptime_ms`, `abl_task_create`, `abl_runtime_run`; бэкенды `bare` (кооперативный round-robin, Шаг 7) и `freertos` (Шаг 9, используется ESP32). Выбор — `product.runtime` в app-конфиге проекта. mutex/semaphore/queue/timer и critical sections добавляются вместе с первыми потребителями.
 
 | Примитив | `bare` (суперлуп) | `freertos` |
 |---|---|---|
@@ -305,22 +305,25 @@ params:  { blink_period_ms: 250 }    # параметры бизнес-логи�
 
 ```
 abl-mcu-project-blink/
-├── src/main.c                  ← общий код (abl_main)
+├── src/main.c                  ← общий код (abl_main), один на все платформы
 ├── CMakeLists.txt              ← обычная сборка (STM32/AVR)
-└── target/esp32/               ← корень IDF-проекта
-    ├── CMakeLists.txt          ← project(...), EXTRA_COMPONENT_DIRS
-    ├── sdkconfig.defaults
+└── target/esp32/               ← корень IDF-проекта (idf.py работает здесь)
+    ├── CMakeLists.txt          ← project(<product.id>), проверка входных -D
     └── main/
-        ├── CMakeLists.txt      ← регистрация общих исходников
+        ├── CMakeLists.txt      ← компонент main: трaмполин + исходники платформы
         └── main.c              ← app_main() → abl_main()
 ```
 
-**Механика:**
+**Механика (реализовано на Шаге 9, проверено на ESP-IDF 5.2.2):**
 - IDF-конвенция «main/main.c в корне проекта» переносится в подкаталог `target/esp32/`; конфликта двух build-систем в одном корне нет.
-- Общие исходники подключаются как дополнительный компонент через `EXTRA_COMPONENT_DIRS` (обход ограничения IDF на `SRCS` вне каталога компонента); `main/` — тонкий трaмполин.
-- Кодогенерация из YAML — те же скрипты, вызываемые из IDF-CMake; сгенерированный include-путь добавляется компоненту.
-- `sdkconfig`/partition table — внутри обёртки, gitignored.
-- Сборка/прошивка/монитор: `idf.py -C target/esp32 build|flash|monitor` (IDF v5.2.2, `IDF_PATH` готовит `setup.sh`).
+- `main/CMakeLists.txt` регистрирует только трaмполин (`idf_component_register(SRCS "main.c" REQUIRES driver esp_timer esp_rom freertos)`), а переносимый `src/main.c`, сгенерированные файлы и исходники платформы подключает через `target_sources()`/`target_include_directories()` — IDF ограничивает `SRCS` каталогом компонента.
+- IDF обрабатывает `CMakeLists.txt` компонента **дважды**; во втором (script mode) проходе допустим только `idf_component_register`, поэтому весь остальной код защищён `if(CMAKE_SCRIPT_MODE_FILE) return()`.
+- Кодогенерация — те же `gen_config.py`/`gen_pinmux.py`, вызываемые из IDF-CMake (board + overlay).
+- Платформенные исходники для ESP32 компилирует сама обёртка (список файлов в одном месте, `abl_component()` в IDF-мире не используется) — осознанная плата за интеграцию с IDF.
+- Рантайм на ESP32 — бэкенд `freertos` (`vTaskDelay`/`xTaskCreate`/`vTaskStartScheduler`).
+- `sdkconfig`, `dependencies.lock` и `build/` — gitignored.
+- Сборка: `./build.sh -C config/blink_esp32.yml` (делегирует в `idf.py`); прошивка/монитор: `idf.py -C target/esp32 -B build/esp32 flash monitor`.
+- Известное: IDF собирает весь набор «обычных» компонентов (mqtt/spiffs/fatfs/…), поэтому первый билд долгий — при желании набор обрезается `set(COMPONENTS ...)` в `target/esp32/CMakeLists.txt`.
 
 ---
 
@@ -363,9 +366,9 @@ abl-mcu-project-blink/
 4. **Точка входа (D7):** `main.c` → `abl_main()`; трaмполины `main` в `soc/`. ✅ (STM32 — готово; AVR-трaмполин — Шаг 8, ESP32 `app_main` — Шаг 9)
 5. **Board/App-модель (D5, D9):** `config/platform/*_board.yml` → `boards/*.yml` (физика + onboard-алиасы); проектный конфиг → `config/app.yml` (`product.board` + overlay `pins` + `features`/`params`); кодогенератор объединяет board + overlay. ✅
 6. **Компоненты (D4):** `abl_component()`; публичные include; сгенерированные файлы самодостаточны (убрать зависимость от `app.h`). ✅
-7. **Рантайм (D6):** контракт + бэкенд `bare`; `abl_delay_*` переводится на контракт (на STM32+bare — systick/DWT, не `HAL_Delay` в долгую). ✅ (sleep/uptime/task/run; `freertos` — Шаг 9)
-8. **HAL-фиксы:** сигнатуры AVR (конфликт `const`/арность `init`), точность задержек (DWT, `esp_rom_delay_us`), расширение `abl_gpio` (прерывания, AF-номер). ✅ (AVR структурно исправлен, но **не собран** — в окружении нет `avr-gcc` и сети; нужен `./setup.sh -p avr`)
-9. **ESP32 (D3):** `target/esp32/` обёртка; `abl_main`/`app_main`; сборка `idf.py`; кодогенерация в IDF-сборке.
+7. **Рантайм (D6):** контракт + бэкенд `bare`; `abl_delay_*` переводится на контракт (на STM32+bare — systick/DWT, не `HAL_Delay` в долгую). ✅ (sleep/uptime/task/run; `freertos` добавлен на Шаге 9)
+8. **HAL-фиксы:** сигнатуры AVR (конфликт `const`/арность `init`), точность задержек (DWT, `esp_rom_delay_us`), расширение `abl_gpio` (прерывания, AF-номер). ✅ (AVR собран и проверен после установки `avr-gcc`)
+9. **ESP32 (D3):** `target/esp32/` обёртка; `abl_main`/`app_main`; сборка `idf.py`; кодогенерация в IDF-сборке. ✅ (проверено: ESP-IDF 5.2.2 + тулчейн `xtensa-esp-elf`)
 10. **Кодогенерация:** `templates/*.jinja` становятся единственным источником; `gen_linker` удаляется; `hardware_pins.h` включает `abl_gpio.h`.
 11. **Чистка:** `:Zone.Identifier`, мёртвые helper-функции, починка CMakePresets, `LICENSES.md` (D10), синхронизация README с этим документом.
 12. **Native (D8):** порт `hal/src/native/` + первый хост-тест; CI.

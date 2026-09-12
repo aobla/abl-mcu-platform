@@ -9,6 +9,7 @@
 
 #include "abl_app.h"
 #include "abl_target_init.h"
+#include "abl_time.h"
 #include "soc_hal.h"
 #include "soc_clock.h"
 
@@ -28,6 +29,7 @@ void abl_target_init(void)
 {
     HAL_Init();
     soc_clock_init();
+    (void)abl_time_init();   /* no-op on STM32: SysTick is already running */
     abl_target_gpio_init();
 }
 

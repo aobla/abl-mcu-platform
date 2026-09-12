@@ -1,6 +1,6 @@
-# Board-дефиниция: обобщённая плата ESP32 (перенос из проекта, Шаг 5)
+# Board-дефиниция: обобщённая плата ESP32
 #
-# TODO: ESP32-порт переводится на обёртку ESP-IDF на Шаге 9.
+# Сборка идёт через обёртку ESP-IDF (target/esp32, Шаг 9).
 
 board:
   name: esp32_generic
@@ -12,8 +12,8 @@ mcu:
 cpu: xtensa-lx6
 
 frequencies:
-  cpu_freq: 240000000
-  apb_freq: 80000000
+  cpu: 240000000            # -> CPU_FREQ
+  apb: 80000000             # -> APB_FREQ
 
 memory:
   flash: 4194304

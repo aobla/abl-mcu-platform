@@ -67,6 +67,7 @@ if(PLATFORM MATCHES "^stm32")
                  ${STM32_INCLUDE_DIRS}
         DEFINES  ${SOC_DEVICE}
                  USE_HAL_DRIVER
+        DEPS     abl::hal
     )
 elseif(PLATFORM STREQUAL "avr")
     # F_CPU is exported PUBLIC: the HAL port and the application need it for
@@ -76,11 +77,12 @@ elseif(PLATFORM STREQUAL "avr")
         INCLUDES ${SOC_DIR}/include
                  ${SOC_DIR}/avr/${AVR_MCU}
         DEFINES  F_CPU=${F_CPU_HZ}
+        DEPS     abl::hal
     )
 elseif(PLATFORM STREQUAL "esp32")
     abl_component(soc
-        SOURCES         ${SOC_SOURCES}
-        INCLUDES        ${SOC_DIR}/include
-        PRIVATE_DEFINES PLATFORM_ESP32
+        SOURCES  ${SOC_SOURCES}
+        INCLUDES ${SOC_DIR}/include
+        DEPS     abl::hal
     )
 endif()
