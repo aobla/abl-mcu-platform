@@ -10,6 +10,19 @@ add_subdirectory(hal)
 add_subdirectory(runtime)
 add_subdirectory(drivers)
 
+# ─── Host tests (D8) ─────────────────────────────────────────────────────────
+# Standalone configure of the platform for PLATFORM=native:
+#   cmake -S . -B build-tests -DPLATFORM=native -DABL_BUILD_TESTS=ON
+#   cmake --build build-tests && ctest --test-dir build-tests
+option(ABL_BUILD_TESTS "Build platform host tests (native only)" OFF)
+if(ABL_BUILD_TESTS)
+    if(NOT PLATFORM STREQUAL "native")
+        message(FATAL_ERROR "ABL_BUILD_TESTS requires -DPLATFORM=native (got '${PLATFORM}')")
+    endif()
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
 # ─── Firmware target ─────────────────────────────────────────────────────────
 # Builds the firmware from the project sources + generated files and links the
 # platform components. Include dirs, device defines and SDK paths are inherited

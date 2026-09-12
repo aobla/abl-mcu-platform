@@ -1,0 +1,75 @@
+Start testing: Sep 12 13:12 MSK
+----------------------------------------------------------
+1/3 Testing: hal_gpio_test
+1/3 Test: hal_gpio_test
+Command: "/home/abl/projects/dsh/abl-mcu-platform/abl-mcu-platform/build-tests/tests/hal_gpio_test"
+Directory: /home/abl/projects/dsh/abl-mcu-platform/abl-mcu-platform/build-tests/tests
+"hal_gpio_test" start time: Sep 12 13:12 MSK
+Output:
+----------------------------------------------------------
+running /home/abl/projects/dsh/abl-mcu-platform/abl-mcu-platform/tests/hal_gpio_test.c
+  [ok]   configure_output_and_write
+  [ok]   toggle_flips_level
+  [ok]   simulated_input_is_visible
+  [ok]   error_paths
+  [ok]   interrupts_are_unsupported_on_host
+28 checks, 0 failures
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"hal_gpio_test" end time: Sep 12 13:12 MSK
+"hal_gpio_test" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/3 Testing: runtime_test
+2/3 Test: runtime_test
+Command: "/home/abl/projects/dsh/abl-mcu-platform/abl-mcu-platform/build-tests/tests/runtime_test"
+Directory: /home/abl/projects/dsh/abl-mcu-platform/abl-mcu-platform/build-tests/tests
+"runtime_test" start time: Sep 12 13:12 MSK
+Output:
+----------------------------------------------------------
+running /home/abl/projects/dsh/abl-mcu-platform/abl-mcu-platform/tests/runtime_test.c
+  [ok]   uptime_is_monotonic
+  [ok]   sleep_does_not_hang
+  [ok]   time_init_is_idempotent
+  [ok]   task_create_validates_arguments
+  [ok]   critical_sections_are_nestable
+7 checks, 0 failures
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"runtime_test" end time: Sep 12 13:12 MSK
+"runtime_test" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/3 Testing: codegen_test
+3/3 Test: codegen_test
+Command: "/usr/bin/python3" "/home/abl/projects/dsh/abl-mcu-platform/abl-mcu-platform/tests/codegen_test.py" "/home/abl/projects/dsh/abl-mcu-platform/abl-mcu-platform/tests/../"
+Directory: /home/abl/projects/dsh/abl-mcu-platform/abl-mcu-platform/build-tests/tests
+"codegen_test" start time: Sep 12 13:12 MSK
+Output:
+----------------------------------------------------------
+codegen contract tests
+  [ok]   valid board + app generate successfully
+  [ok]   numeric port is encoded as a pointer
+  [ok]   pin number is emitted
+  [ok]   board af survives into the header
+  [ok]   board speed survives
+  [ok]   board otype survives
+  [ok]   generated init uses abl_gpio_configure()
+  [ok]   app params become CONFIG_* macros
+  [ok]   app features become CONFIG_* macros
+  [ok]   unknown use: reference fails loudly
+  [ok]   two pins on one physical pin fail loudly
+0 failures
+<end of output>
+Test time =   0.24 sec
+----------------------------------------------------------
+Test Passed.
+"codegen_test" end time: Sep 12 13:12 MSK
+"codegen_test" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Sep 12 13:12 MSK

@@ -254,6 +254,9 @@ params:  { blink_period_ms: 250 }    # параметры бизнес-логи�
 | `abl_critical` (ISR/атомарность) | есть | PRIMASK save/restore (STM32), SREG (AVR), interrupt mask (ESP32) |
 | `abl_runtime` | есть (`bare`, `freertos`) | sleep/uptime/task/run; `freertos` используется ESP32 (Шаг 9); mutex/queue/timer — по мере потребителей |
 
+Все контракты реализованы для портов `stm32` (F1/F4/H7), `avr`, `esp32` и `native`
+(хост-симуляция, D8); порт выбирается по платформе сборки.
+
 ---
 
 ## 11. Рантайм (D6)
@@ -331,7 +334,7 @@ abl-mcu-project-blink/
 ## 15. Инструментарий, сборка, отладка
 
 - **CMake** (≥3.20) + **Ninja**; основной вход — `build.sh` (читает YAML-конфиги, резолвит board/SoC, выбирает рантайм, умеет `--flash`/`--monitor`); `CMakePresets.json` — dev-удобство для IDE (рабочие пресеты f103/h743/avr; ESP32 собирается только через IDF).
-- **Тулчейны:** `arm-none-eabi-gcc` ≥12 (STM32), `avr-gcc` ≥5 (AVR), ESP-IDF v5.2.2 + `xtensa-esp-elf` (ESP32), системный компилятор хоста (native).
+- **Тулчейны:** `arm-none-eabi-gcc` ≥12 (STM32), `avr-gcc` ≥5 (AVR), ESP-IDF v5.2.2 + `xtensa-esp-elf` (ESP32), системный `cc` (native — хост-симуляция).
 - **Установка:** `setup.sh` — bootstrap из проектного `prerequisites.yaml` (инструменты, pip, ссылка на платформу), затем версии SDK/тулчейнов из **манифеста платформы** `manifest.yml` (единственный источник, §5); есть `--check-only`.
 - **Прошивка/монитор — единые команды:** `./build.sh -C <config> --flash [--monitor]`; способ выбирается по `flash.tool` в board-дефиниции: `openocd` (STM32, конфиг `boards/<board>.openocd.cfg`), `avrdude` (AVR: programmer/port/baud из board), `idf` (ESP32: `idf.py flash`/`monitor`). Монитор — `picocom` по `monitor.port`/`monitor.baud`.
 - **GDB-отладка:** STM32 — OpenOCD + GDB (скрипты `boards/*.openocd.cfg`), AVR — `simavr`/`avr-gdb` (план).
@@ -341,9 +344,11 @@ abl-mcu-project-blink/
 
 ## 16. Тестирование (D8)
 
-- **Native-порт** `hal/src/native/`: gpio = мок/файл, time = `clock_gettime`, uart = pipe/pty. Это четвёртый бэкенд HAL, равноценный остальным.
-- Хост-тесты драйверов на моках шин в `tests/` — гоняются мгновенно, без железа.
-- CI (план): матрица «все платформы собираются» + native-тесты.
+- **Native-порт** `hal/src/native/`: GPIO — in-memory симуляция (`abl_native_gpio_inject/get` из `abl_native_sim.h`, только для тестов), time — `clock_gettime(CLOCK_MONOTONIC)`, delay — реальный `nanosleep` (хост — симулятор логики, не real-time), critical — счётчик вложенности. Это четвёртый (пятый с учётом IDF) полноценный бэкенд HAL.
+- Симуляция наблюдаема: `ABL_NATIVE_GPIO_TRACE=1` печатает переходы уровней — так `blink_native` видно без железа.
+- **Хост-тесты** в `tests/`: минимальный собственный харнесс `abl_test.h` (без внешних фреймворков — сборка должна работать офлайн), `hal_gpio_test`, `runtime_test` + `codegen_test.py` (контракт генераторов: `use:`-ссылки, конфликты пинов, `af/speed/otype`, `CONFIG_*`).
+- Запуск: `./scripts/run_host_tests.sh` (configure `PLATFORM=native` + `ABL_BUILD_TESTS=ON`, затем `ctest`). Хост-тесты линкуют `abl::hal`/`abl::active`/`abl::runtime` **без** `abl::soc` — иначе конфликт `main()` с `soc/native/native_main.c`.
+- **CI:** `.github/workflows/ci.yml` в платформе (хост-тесты + сборка компонентов) и в проекте (матрица прошивок stm32f103/h743/avr/native + ESP-IDF). Локально не проверялся — нет сети.
 - Критерий качества контракта: «то, что нельзя сымитировать на native, скорее всего, спроектировано неправильно».
 
 ---
@@ -373,7 +378,7 @@ abl-mcu-project-blink/
 9. **ESP32 (D3):** `target/esp32/` обёртка; `abl_main`/`app_main`; сборка `idf.py`; кодогенерация в IDF-сборке. ✅ (проверено: ESP-IDF 5.2.2 + тулчейн `xtensa-esp-elf`)
 10. **Кодогенерация:** `templates/*.jinja` становятся единственным источником; `gen_linker` удаляется; `hardware_pins.h` включает `abl_gpio.h`. ✅ (плюс общий `scripts/abl_codegen.py` и единый `scripts/generate.py`)
 11. **Чистка:** `:Zone.Identifier`, мёртвые helper-функции, починка CMakePresets, `LICENSES.md` (D10), синхронизация README с этим документом. ✅ (+ единые команды `--flash`/`--monitor`, консолидация манифеста, удаление мёртвого `esp32-clang.cmake`)
-12. **Native (D8):** порт `hal/src/native/` + первый хост-тест; CI.
+12. **Native (D8):** порт `hal/src/native/` + первый хост-тест; CI. ✅ (3 теста проходят: `hal_gpio_test`, `runtime_test`, `codegen_test`; `blink_native` запускается на хосте; CI-workflows добавлены, локально не проверялись — нет сети)
 
 ## 19. Журнал решений (ADR)
 

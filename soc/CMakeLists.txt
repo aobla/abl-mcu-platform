@@ -43,6 +43,18 @@ elseif(PLATFORM STREQUAL "esp32")
     set(SOC_STARTUP_FILE "")
     set(SOC_LINKER_SCRIPT "")
     set(SOC_SYSTEM_FILE "")
+elseif(PLATFORM STREQUAL "native")
+    # Host simulation: bring-up + the main() trampoline (D7/D8).
+    set(SOC_SOURCES
+        ${SOC_DIR}/native/native_target_init.c
+        ${SOC_DIR}/native/native_main.c
+    )
+    set(SOC_HAL_CONF_DIR "")
+    set(SOC_DEVICE "")
+    set(SOC_HAL_PREFIX "")
+    set(SOC_STARTUP_FILE "")
+    set(SOC_LINKER_SCRIPT "")
+    set(SOC_SYSTEM_FILE "")
 else()
     message(FATAL_ERROR "soc: unsupported platform: ${PLATFORM}")
 endif()
@@ -83,6 +95,14 @@ elseif(PLATFORM STREQUAL "esp32")
     abl_component(soc
         SOURCES  ${SOC_SOURCES}
         INCLUDES ${SOC_DIR}/include
+        DEPS     abl::hal
+    )
+elseif(PLATFORM STREQUAL "native")
+    # NOTE: host tests link the HAL/runtime WITHOUT this component, because
+    # native_main.c provides main() and the tests have their own.
+    abl_component(soc
+        SOURCES  ${SOC_SOURCES}
+        INCLUDES ${SOC_DIR}/include ${SOC_DIR}/native
         DEPS     abl::hal
     )
 endif()

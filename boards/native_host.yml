@@ -1,0 +1,23 @@
+# Board-дефиниция: native (хост, x86) — симуляция для тестов и разработки
+#
+# Это не железо, а «платформа-хост»: тот же код приложения и драйверов
+# собирается под x86 и гоняется без МК. Порты пинов — условные номера,
+# GPIO эмулируется (см. hal/src/native).
+
+board:
+  name: native_host
+  description: "Host (x86) simulation target"
+
+platform: native
+mcu:
+  part: HOST
+cpu: x86_64
+
+memory:
+  flash: 0                  # не ограничиваем: это хост
+  ram: 0
+
+# Условные пины: «бортовой светодиод» на порту 0, пин 0.
+onboard:
+  led0: { port: 0, pin: 0, mode: output, state: low }
+  btn0: { port: 0, pin: 1, mode: input, pull: up }

@@ -1,0 +1,58 @@
+name: platform
+
+# CI платформы: хост-тесты (native + кодогенерация) и сборка компонентов.
+# Прошивки под МК собираются в CI проектов (репозитории abl-mcu-project-*).
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  host-tests:
+    name: Host tests (native + codegen)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build python3 python3-yaml python3-jinja2
+
+      - name: Run host tests
+        run: ./scripts/run_host_tests.sh
+
+  build-components:
+    name: Build components (${{ matrix.platform }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: native
+            packages: ""
+          - platform: avr
+            packages: gcc-avr avr-libc
+          - platform: stm32f103
+            packages: gcc-arm-none-eabi
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build ${{ matrix.packages }}
+
+      - name: Configure components
+        env:
+          # STM32 needs a device part; other platforms have no SoC resolver input.
+          MCU_PART: ${{ matrix.platform == 'stm32f103' && 'STM32F103C6T6' || '' }}
+          F_CPU_HZ: ${{ matrix.platform == 'avr' && '16000000' || '' }}
+          AVR_MCU: ${{ matrix.platform == 'avr' && 'atmega328p' || '' }}
+        run: |
+          cmake -S . -B build-ci -G Ninja \
+            -DPLATFORM=${{ matrix.platform }} \
+            -DMCU_PART="${MCU_PART}" \
+            -DAVR_MCU="${AVR_MCU}" \
+            -DF_CPU_HZ="${F_CPU_HZ}"
+          cmake --build build-ci
