@@ -1,7 +1,14 @@
 name: platform
 
-# CI платформы: хост-тесты (native + кодогенерация) и сборка компонентов.
-# Прошивки под МК собираются в CI проектов (репозитории abl-mcu-project-*).
+# CI платформы:
+#   - host-tests: тесты на native (быстро, без тулчейнов и SDK);
+#   - build-components: сборка портов HAL под МК-платформы.
+#
+# ВАЖНО про сборку под МК: платформа сама тулчейн не выбирает — это делает
+# проект (CMAKE_TOOLCHAIN_FILE). Поэтому здесь тулчейн подключается явно, а
+# vendor-SDK ставится из manifest.yml (иначе нет заголовков вида stm32f1xx_hal.h).
+# Полная проверка «прошивка под платформу» живёт в CI проекта
+# (abl-mcu-project-*/​.github/workflows/ci.yml).
 
 on:
   push:
@@ -31,28 +38,45 @@ jobs:
         include:
           - platform: native
             packages: ""
+            toolchain: ""
+            sdk: ""
+            cmake_extra: ""
           - platform: avr
             packages: gcc-avr avr-libc
+            toolchain: cmake/toolchains/avr-gcc.cmake
+            sdk: ""
+            cmake_extra: "-DAVR_MCU=atmega328p -DF_CPU_HZ=16000000"
           - platform: stm32f103
             packages: gcc-arm-none-eabi
+            toolchain: cmake/toolchains/stm32-gcc.cmake
+            sdk: stm32f1-hal
+            # CPU/FPU/ABI normally come from the project, which resolves them from
+            # mcu.part through cmake/helpers/soc.cmake; a standalone platform build
+            # passes them explicitly.
+            cmake_extra: "-DMCU_PART=STM32F103C6T6 -DABL_SOC_FAMILY=f1 -DSTM32_MCU=cortex-m3 -DSTM32_FPU= -DSTM32_FLOAT_ABI=soft"
+          - platform: stm32h743
+            packages: gcc-arm-none-eabi
+            toolchain: cmake/toolchains/stm32-gcc.cmake
+            sdk: stm32h7-hal
+            cmake_extra: "-DMCU_PART=STM32H743VIT6 -DABL_SOC_FAMILY=h7 -DSTM32_MCU=cortex-m7 -DSTM32_FPU=fpv5-sp-d16 -DSTM32_FLOAT_ABI=hard"
     steps:
       - uses: actions/checkout@v4
 
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build ${{ matrix.packages }}
+          sudo apt-get install -y cmake ninja-build python3 python3-yaml python3-jinja2 ${{ matrix.packages }}
+
+      # Компоненты платформы включают vendor-заголовки (soc_hal.h → stm32f1xx_hal.h),
+      # поэтому SDK обязателен. Версии берутся из manifest.yml.
+      - name: Install vendor SDK from manifest
+        if: matrix.sdk != ''
+        run: ./scripts/install_sdk.py ${{ matrix.sdk }}
 
       - name: Configure components
-        env:
-          # STM32 needs a device part; other platforms have no SoC resolver input.
-          MCU_PART: ${{ matrix.platform == 'stm32f103' && 'STM32F103C6T6' || '' }}
-          F_CPU_HZ: ${{ matrix.platform == 'avr' && '16000000' || '' }}
-          AVR_MCU: ${{ matrix.platform == 'avr' && 'atmega328p' || '' }}
         run: |
           cmake -S . -B build-ci -G Ninja \
             -DPLATFORM=${{ matrix.platform }} \
-            -DMCU_PART="${MCU_PART}" \
-            -DAVR_MCU="${AVR_MCU}" \
-            -DF_CPU_HZ="${F_CPU_HZ}"
+            ${{ matrix.toolchain && format('-DCMAKE_TOOLCHAIN_FILE={0}', matrix.toolchain) || '' }} \
+            ${{ matrix.cmake_extra }}
           cmake --build build-ci

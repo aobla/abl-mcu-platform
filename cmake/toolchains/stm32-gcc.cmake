@@ -4,6 +4,12 @@
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 
+# Bare-metal: CMake's compiler check must not try to LINK a host executable
+# (it fails with "undefined reference to _exit" on arm-none-eabi). Projects set
+# this too; setting it here also lets the platform be configured standalone
+# (CI: components only).
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+
 # ─── STM32 family ────────────────────────────────────────────────────────────
 # Источник — SoC-дефиниция; проект резолвит её до project() (R3).
 if(DEFINED ABL_SOC_FAMILY AND NOT ABL_SOC_FAMILY STREQUAL "")

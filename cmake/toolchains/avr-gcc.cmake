@@ -4,6 +4,9 @@
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR avr)
 
+# Bare-metal: the compiler check must not try to link a host executable.
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+
 # ─── Toolchain resolution (priority order) ───────────────────────────────────
 # 1. ABL_TOOLCHAIN_PATH env var
 # 2. ~/.local/share/abl-mcu-toolchains/avr/current
