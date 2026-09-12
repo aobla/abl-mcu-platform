@@ -4,7 +4,10 @@
 
 board:
   name: esp32_generic
-  description: "Обобщённая плата ESP32, 240 МГц"
+  description: "Обобщённая плата ESP32 (Xtensa), 240 МГц"
+
+# Целевой чип ESP-IDF (обязателен для платформы esp32)
+idf_target: esp32
 
 platform: esp32
 mcu:

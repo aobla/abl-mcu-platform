@@ -1,0 +1,53 @@
+# Board-дефиниция: ESP32-C3 SuperMini (RISC-V)
+#
+# ESP32-C3 — это НЕ Xtensa: другой чип (RISC-V), другой тулчейн (riscv32-esp-elf)
+# и другой target для ESP-IDF. Поэтому чип описывается здесь, в board-дефиниции,
+# а IDF-обёртка получает его как -DIDF_TARGET.
+#
+# Встроенный USB-Serial-JTAG: плата видна как /dev/ttyACM0 (cdc_acm).
+
+board:
+  name: esp32c3_supermini
+  description: "ESP32-C3 SuperMini, RISC-V, USB-Serial-JTAG"
+
+# Целевой чип ESP-IDF (esp32, esp32c3, esp32s3, ...) — ключ верхнего уровня,
+# как platform/cpu: его читает build.sh и передаёт в IDF-обёртку.
+idf_target: esp32c3
+usb_serial_jtag: true            # встроенный USB, порт появляется как ttyACM*
+
+platform: esp32
+mcu:
+  part: ESP32-C3
+cpu: riscv32
+
+frequencies:
+  cpu: 160000000
+  apb: 40000000
+
+memory:
+  flash: 4194304
+  ram: 400000
+
+# Пины ESP32-C3 SuperMini.
+#   LED      — GPIO8 (активный низкий, синий на плате; подключён напрямую)
+#   BOOT     — GPIO9 (кнопка BOOT, активный низкий)
+#   UART0    — TX GPIO21 / RX GPIO20 (USB-Serial-JTAG использует внутренние линии)
+#
+# Замечание по LED: светодиод подключён напрямую (гипотеза о конденсаторе
+# проверена и не подтвердилась). Тусклое свечение первых сборок было дефектом
+# нашего ESP32-порта: выход настраивался как GPIO_MODE_INPUT_OUTPUT, что на C3
+# включает входной тракт и «подсаживает» выходную ступень. Исправлено в
+# hal/src/esp32/gpio_esp32.c (для режима OUTPUT используется GPIO_MODE_OUTPUT).
+# Эталон: тот же blink на примере из ESP-IDF светит нормально.
+onboard:
+  led0:      { port: 8,  pin: 0, mode: output, state: low }
+  btn0:      { port: 9,  pin: 0, mode: input,  pull: up }
+  usart0_tx: { port: 21, pin: 0, mode: alt_function }
+  usart0_rx: { port: 20, pin: 0, mode: alt_function }
+
+# Прошивка и монитор: ./build.sh -C <config> --flash [--monitor]
+flash:
+  tool: idf
+  port: /dev/ttyACM0               # встроенный USB-Serial-JTAG
+monitor:
+  baud: 115200

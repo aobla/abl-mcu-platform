@@ -5,7 +5,17 @@
  * `speed` has no equivalent on ESP32 and `af` is not used: peripherals are
  * routed to pins by the ESP-IDF driver configuration (GPIO matrix).
  *
- * TODO (Step 9): this port moves into the ESP-IDF wrapper.
+ * Two ESP32-specific caveats, both learned the hard way on an ESP32-C3:
+ *
+ *  1. An output pin must be configured as GPIO_MODE_OUTPUT, NOT
+ *     GPIO_MODE_INPUT_OUTPUT. The latter also enables the input path, which on
+ *     C3 disturbs the output stage: the LED only glowed faintly (the same code
+ *     glows correctly with GPIO_MODE_OUTPUT, as in the IDF blink example).
+ *
+ *  2. abl_gpio_toggle() must NOT read the pin back. gpio_get_level() returns the
+ *     pad level, not the value we drove, so with a loaded output the next toggle
+ *     can be wrong. The driven level is tracked in software instead (see
+ *     s_level), which also keeps toggle correct while the pin is an input.
  */
 
 #include "abl_gpio.h"
@@ -14,6 +24,7 @@
 #include "esp_err.h"
 
 #define ABL_ESP32_MAX_IRQ 8U
+#define ABL_ESP32_MAX_PINS 40U
 
 typedef struct {
     abl_gpio_irq_cb_t cb;
@@ -25,9 +36,27 @@ typedef struct {
 static esp32_irq_slot_t s_irq[ABL_ESP32_MAX_IRQ];
 static bool             s_isr_service_installed;
 
+/* Software shadow of the last level we drove. Index = GPIO number, so no lookup
+ * is needed; the table costs one byte per GPIO and lives in .bss. */
+static uint8_t s_known[ABL_ESP32_MAX_PINS];
+static uint8_t s_level[ABL_ESP32_MAX_PINS];
+
 static gpio_num_t to_gpio_num(const abl_gpio_pin_t* pin)
 {
     return (gpio_num_t)(intptr_t)pin->port;
+}
+
+static bool gpio_in_range(gpio_num_t num)
+{
+    return ((uint32_t)num < ABL_ESP32_MAX_PINS);
+}
+
+static void shadow_set(gpio_num_t num, bool level)
+{
+    if (gpio_in_range(num)) {
+        s_level[(uint32_t)num] = level ? 1U : 0U;
+        s_known[(uint32_t)num] = 1U;
+    }
 }
 
 /* gpio_isr_handler_add() hands the slot pointer back to us as the argument. */
@@ -63,6 +92,11 @@ abl_status_t abl_gpio_configure(const abl_gpio_pin_t* pin, const abl_gpio_cfg_t*
             break;
 
         case ABL_GPIO_MODE_OUTPUT:
+            /* Pure output: INPUT_OUTPUT enables the input path too, which on
+             * C3 disturbs the output stage (see the IDF blink example). */
+            io.mode = GPIO_MODE_OUTPUT;
+            break;
+
         case ABL_GPIO_MODE_ALT_FUNCTION:    /* routing is done by the peripheral driver */
             io.mode = GPIO_MODE_INPUT_OUTPUT;
             break;
@@ -76,9 +110,11 @@ abl_status_t abl_gpio_configure(const abl_gpio_pin_t* pin, const abl_gpio_cfg_t*
     }
 
     if (cfg->mode != ABL_GPIO_MODE_INPUT && cfg->state != ABL_GPIO_STATE_NONE) {
-        if (gpio_set_level(num, (cfg->state == ABL_GPIO_STATE_HIGH) ? 1 : 0) != ESP_OK) {
+        const int level = (cfg->state == ABL_GPIO_STATE_HIGH) ? 1 : 0;
+        if (gpio_set_level(num, level) != ESP_OK) {
             return ABL_STATUS_ERROR;
         }
+        shadow_set(num, level != 0);
     }
 
     return ABL_STATUS_OK;
@@ -101,8 +137,14 @@ abl_status_t abl_gpio_write(const abl_gpio_pin_t* pin, bool state)
     if (pin == 0) {
         return ABL_STATUS_ERROR;
     }
-    return (gpio_set_level(to_gpio_num(pin), state ? 1 : 0) == ESP_OK) ? ABL_STATUS_OK
-                                                                      : ABL_STATUS_ERROR;
+
+    const gpio_num_t num = to_gpio_num(pin);
+    if (gpio_set_level(num, state ? 1 : 0) != ESP_OK) {
+        return ABL_STATUS_ERROR;
+    }
+
+    shadow_set(num, state);
+    return ABL_STATUS_OK;
 }
 
 abl_status_t abl_gpio_toggle(const abl_gpio_pin_t* pin)
@@ -111,9 +153,21 @@ abl_status_t abl_gpio_toggle(const abl_gpio_pin_t* pin)
         return ABL_STATUS_ERROR;
     }
 
-    const int level = gpio_get_level(to_gpio_num(pin));
-    return (gpio_set_level(to_gpio_num(pin), level == 0 ? 1 : 0) == ESP_OK) ? ABL_STATUS_OK
-                                                                           : ABL_STATUS_ERROR;
+    const gpio_num_t num = to_gpio_num(pin);
+    if (!gpio_in_range(num)) {
+        return ABL_STATUS_ERROR;
+    }
+
+    /* Never read the pad back: use the driven level we remember. */
+    const bool next = (s_known[(uint32_t)num] == 0U) ? true
+                                                     : (s_level[(uint32_t)num] == 0U);
+
+    if (gpio_set_level(num, next ? 1 : 0) != ESP_OK) {
+        return ABL_STATUS_ERROR;
+    }
+
+    shadow_set(num, next);
+    return ABL_STATUS_OK;
 }
 
 abl_status_t abl_gpio_read(const abl_gpio_pin_t* pin, bool* state)

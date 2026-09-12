@@ -68,6 +68,50 @@ ABL_TEST(simulated_input_is_visible)
     ABL_CHECK_EQ(level, false);
 }
 
+ABL_TEST(toggle_ignores_the_pad_level)
+{
+    /* Regression test for a real ESP32-C3 bug: the port used to implement
+     * toggle() by reading the pad back (gpio_get_level) and inverting it. With a
+     * loaded output the pad does not follow the driven value, so toggling became
+     * unreliable. toggle() must depend only on the level we drove.
+     *
+     * Here the "pad" is externally forced low while we drive high: a correct
+     * implementation still toggles to low on the next call instead of repeating
+     * high. */
+    abl_gpio_cfg_t cfg = {0};
+    cfg.mode  = ABL_GPIO_MODE_OUTPUT;
+    cfg.state = ABL_GPIO_STATE_LOW;
+    ABL_CHECK_EQ(abl_gpio_configure(&s_led, &cfg), ABL_STATUS_OK);
+
+    ABL_CHECK_EQ(abl_gpio_write(&s_led, true), ABL_STATUS_OK);
+
+    /* Simulate a pad that is dragged low by the load. */
+    ABL_CHECK_EQ(abl_native_gpio_inject(&s_led, false), ABL_STATUS_OK);
+
+    ABL_CHECK_EQ(abl_gpio_toggle(&s_led), ABL_STATUS_OK);
+
+    bool level = true;
+    ABL_CHECK_EQ(abl_native_gpio_get(&s_led, &level), ABL_STATUS_OK);
+    ABL_CHECK_EQ(level, false);   /* driven high -> toggle must go low */
+}
+
+ABL_TEST(toggle_after_config_is_deterministic)
+{
+    /* toggle() on a freshly configured pin must produce a defined sequence,
+     * regardless of what the pad reported before. */
+    abl_gpio_cfg_t cfg = {0};
+    cfg.mode  = ABL_GPIO_MODE_OUTPUT;
+    cfg.state = ABL_GPIO_STATE_LOW;
+    ABL_CHECK_EQ(abl_gpio_configure(&s_led, &cfg), ABL_STATUS_OK);
+
+    bool level = false;
+    for (unsigned i = 0; i < 4U; i++) {
+        ABL_CHECK_EQ(abl_gpio_toggle(&s_led), ABL_STATUS_OK);
+        ABL_CHECK_EQ(abl_native_gpio_get(&s_led, &level), ABL_STATUS_OK);
+        ABL_CHECK_EQ(level, (i % 2U) == 0U);
+    }
+}
+
 ABL_TEST(error_paths)
 {
     abl_gpio_cfg_t cfg = {0};
@@ -98,6 +142,8 @@ ABL_TEST(interrupts_are_unsupported_on_host)
 ABL_TEST_MAIN_BEGIN()
     ABL_TEST_RUN(configure_output_and_write);
     ABL_TEST_RUN(toggle_flips_level);
+    ABL_TEST_RUN(toggle_ignores_the_pad_level);
+    ABL_TEST_RUN(toggle_after_config_is_deterministic);
     ABL_TEST_RUN(simulated_input_is_visible);
     ABL_TEST_RUN(error_paths);
     ABL_TEST_RUN(interrupts_are_unsupported_on_host);

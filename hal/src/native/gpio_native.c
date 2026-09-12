@@ -2,12 +2,19 @@
  * @brief Native (host) GPIO port (L1) — simulation (D8).
  *
  * Pins are identified by (port, pin) pairs, exactly like on real hardware, but
- * everything is kept in a small in-memory registry:
- *   - abl_gpio_write()/toggle() update the simulated output level;
- *   - abl_gpio_read() returns the simulated input level (written by the test
- *     through abl_native_gpio_inject(), or the last written output level).
+ * everything is kept in a small in-memory registry. Two levels are tracked per
+ * pin, because on real hardware they are not the same thing:
  *
- * Setting ABL_NATIVE_GPIO_TRACE=1 in the environment prints every transition,
+ *   out_level — the level the code DROVE (software shadow). abl_gpio_toggle()
+ *               uses only this: reading a pad back is unreliable when a load
+ *               drags the line (that bug was found on an ESP32-C3, where an
+ *               output configured as INPUT_OUTPUT glowed only faintly).
+ *   pad_level — the level ON THE PAD, i.e. what abl_gpio_read() returns. It
+ *               follows out_level for an output pin, and a test can override it
+ *               with abl_native_gpio_inject() to simulate an external signal or
+ *               a load that drags the output.
+ *
+ * Setting ABL_NATIVE_GPIO_TRACE=1 in the environment prints every pad transition,
  * which makes the native blink demo observable.
  */
 
@@ -24,7 +31,8 @@ typedef struct {
     uint16_t pin;
     bool     used;
     bool     output;
-    bool     level;
+    bool     pad_level;   /* what abl_gpio_read() reports */
+    bool     out_level;   /* what the code last drove (toggle uses this) */
 } native_pin_slot_t;
 
 static native_pin_slot_t s_pins[ABL_NATIVE_MAX_PINS];
@@ -57,10 +65,11 @@ static native_pin_slot_t* slot_find(const abl_gpio_pin_t* pin, bool create)
 
     for (uint32_t i = 0; i < ABL_NATIVE_MAX_PINS; i++) {
         if (!s_pins[i].used) {
-            s_pins[i].used  = true;
-            s_pins[i].port  = pin->port;
-            s_pins[i].pin   = pin->pin;
-            s_pins[i].level = false;
+            s_pins[i].used      = true;
+            s_pins[i].port      = pin->port;
+            s_pins[i].pin       = pin->pin;
+            s_pins[i].pad_level = false;
+            s_pins[i].out_level = false;
             return &s_pins[i];
         }
     }
@@ -68,14 +77,26 @@ static native_pin_slot_t* slot_find(const abl_gpio_pin_t* pin, bool create)
     return 0;
 }
 
-static void slot_set_level(native_pin_slot_t* slot, bool level)
+static void slot_drive(native_pin_slot_t* slot, bool level)
 {
-    if (slot->level != level && trace_enabled()) {
+    slot->out_level = level;
+    /* On a healthy output the pad follows what we drove. */
+    if (slot->pad_level != level && trace_enabled()) {
         printf("[native-gpio] port=%p pin=%u -> %u\n", slot->port, (unsigned)slot->pin,
                (unsigned)level);
         fflush(stdout);
     }
-    slot->level = level;
+    slot->pad_level = level;
+}
+
+static void slot_set_pad(native_pin_slot_t* slot, bool level)
+{
+    if (slot->pad_level != level && trace_enabled()) {
+        printf("[native-gpio] port=%p pin=%u pad -> %u\n", slot->port, (unsigned)slot->pin,
+               (unsigned)level);
+        fflush(stdout);
+    }
+    slot->pad_level = level;
 }
 
 /* ─── Configuration ─────────────────────────────────────────────────────── */
@@ -96,7 +117,7 @@ abl_status_t abl_gpio_configure(const abl_gpio_pin_t* pin, const abl_gpio_cfg_t*
         case ABL_GPIO_MODE_ALT_FUNCTION:
             slot->output = true;
             if (cfg->state != ABL_GPIO_STATE_NONE) {
-                slot_set_level(slot, cfg->state == ABL_GPIO_STATE_HIGH);
+                slot_drive(slot, cfg->state == ABL_GPIO_STATE_HIGH);
             }
             break;
 
@@ -130,7 +151,7 @@ abl_status_t abl_gpio_write(const abl_gpio_pin_t* pin, bool state)
     if (slot == 0) {
         return ABL_STATUS_ERROR;   /* write to an unconfigured pin */
     }
-    slot_set_level(slot, state);
+    slot_drive(slot, state);
     return ABL_STATUS_OK;
 }
 
@@ -140,7 +161,8 @@ abl_status_t abl_gpio_toggle(const abl_gpio_pin_t* pin)
     if (slot == 0) {
         return ABL_STATUS_ERROR;
     }
-    slot_set_level(slot, !slot->level);
+    /* Invert what we DROVE, never the pad: the pad may be dragged by a load. */
+    slot_drive(slot, !slot->out_level);
     return ABL_STATUS_OK;
 }
 
@@ -155,7 +177,7 @@ abl_status_t abl_gpio_read(const abl_gpio_pin_t* pin, bool* state)
         return ABL_STATUS_ERROR;
     }
 
-    *state = slot->level;
+    *state = slot->pad_level;
     return ABL_STATUS_OK;
 }
 
@@ -184,8 +206,10 @@ abl_status_t abl_native_gpio_inject(const abl_gpio_pin_t* pin, bool level)
     if (slot == 0) {
         return ABL_STATUS_ERROR;
     }
-    slot->output = false;   /* simulated input */
-    slot_set_level(slot, level);
+    /* Force what is seen ON THE PAD. For an input pin this is the external
+     * signal; for an output pin it models a load dragging the line (the pad no
+     * longer follows the driven level, exactly like the ESP32-C3 bug). */
+    slot_set_pad(slot, level);
     return ABL_STATUS_OK;
 }
 
@@ -198,7 +222,7 @@ abl_status_t abl_native_gpio_get(const abl_gpio_pin_t* pin, bool* level)
     if (slot == 0) {
         return ABL_STATUS_ERROR;
     }
-    *level = slot->level;
+    *level = slot->pad_level;
     return ABL_STATUS_OK;
 }
 
