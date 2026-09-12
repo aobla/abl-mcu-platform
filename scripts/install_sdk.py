@@ -60,6 +60,8 @@ def main():
     parser.add_argument("sdk", help="SDK name as defined in manifest.yml (sdks.<name>)")
     parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST), help="path to manifest.yml")
     parser.add_argument("--force", action="store_true", help="re-install even if present")
+    parser.add_argument("--print-path", action="store_true",
+                        help="only print the SDK install dir (from the manifest) and exit")
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest)
@@ -74,6 +76,11 @@ def main():
 
     spec = sdks[args.sdk]
     dest = Path(os.path.expanduser(spec["install_dir"]))
+
+    if args.print_path:
+        # Lets scripts (and CI) avoid hardcoding ~/.local/share paths.
+        print(dest)
+        return
     repos = spec.get("git") or []
     if not repos:
         sys.exit(f"Error: SDK '{args.sdk}' has no git repositories in the manifest")

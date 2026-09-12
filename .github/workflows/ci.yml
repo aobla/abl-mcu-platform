@@ -86,16 +86,23 @@ jobs:
         run: ./scripts/install_sdk.py ${{ matrix.sdk }}
 
       # Ключевые заголовки CMSIS: без них сборка падает невнятным
-      # "core_cmX.h: No such file or directory". Проверяем раскладку сразу.
+      # "core_cmX.h: No such file or directory". Раскладку проверяет сам
+      # установщик (у него include_dirs из манифеста), здесь — краткая сводка.
+      #
+      # NOTE: путь берётся из манифеста через install_sdk.py --print-path.
+      # В workflow-выражениях НЕТ контекста env.HOME (частая ошибка: он даёт
+      # пустую строку и путь вида /.local/...), поэтому $HOME читает shell.
       - name: Verify SDK layout
         if: matrix.sdk != ''
-        env:
-          SDK_DIR: ${{ format('{0}/.local/share/abl-mcu-sdks/{1}', env.HOME, matrix.sdk) }}
         run: |
+          SDK_DIR="$(./scripts/install_sdk.py ${{ matrix.sdk }} --print-path)"
+          echo "SDK: $SDK_DIR"
+
           case "${{ matrix.sdk }}" in
             stm32f1-hal) HAL=stm32f1xx_hal.h; CORE=core_cm3.h ;;
             stm32h7-hal) HAL=stm32h7xx_hal.h; CORE=core_cm7.h ;;
           esac
+
           echo "--- SDK tree (2 levels) ---"
           find "$SDK_DIR" -maxdepth 2 -type d | sort | head -20
 
