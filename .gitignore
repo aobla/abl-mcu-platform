@@ -31,3 +31,7 @@ compile_commands.json
 *.lst
 # Windows ADS leftover
 *.Zone.Identifier
+
+# Python bytecode cache (codegen scripts)
+__pycache__/
+*.pyc
