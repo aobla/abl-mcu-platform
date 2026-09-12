@@ -8,7 +8,7 @@ name: platform
 # проект (CMAKE_TOOLCHAIN_FILE). Поэтому здесь тулчейн подключается явно, а
 # vendor-SDK ставится из manifest.yml (иначе нет заголовков вида stm32f1xx_hal.h).
 # Полная проверка «прошивка под платформу» живёт в CI проекта
-# (abl-mcu-project-*/​.github/workflows/ci.yml).
+# (abl-mcu-project-*/.github/workflows/ci.yml).
 
 on:
   push:
@@ -25,6 +25,18 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build python3 python3-yaml python3-jinja2
+
+      # git хранит режим файла: если бит +x потерян, шаг упадёт с "Permission
+      # denied" вместо понятной диагностики. Проверяем это первым.
+      - name: Check script permissions
+        run: |
+          for f in scripts/*.sh scripts/*.py tests/*.py; do
+            if [ ! -x "$f" ]; then
+              echo "::error file=$f::script is not executable (git mode 100644). Fix: chmod +x $f && git update-index --chmod=+x $f"
+              exit 1
+            fi
+          done
+          echo "all scripts are executable"
 
       - name: Run host tests
         run: ./scripts/run_host_tests.sh
