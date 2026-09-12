@@ -85,6 +85,33 @@ jobs:
         if: matrix.sdk != ''
         run: ./scripts/install_sdk.py ${{ matrix.sdk }}
 
+      # Ключевые заголовки CMSIS: без них сборка падает невнятным
+      # "core_cmX.h: No such file or directory". Проверяем раскладку сразу.
+      - name: Verify SDK layout
+        if: matrix.sdk != ''
+        env:
+          SDK_DIR: ${{ format('{0}/.local/share/abl-mcu-sdks/{1}', env.HOME, matrix.sdk) }}
+        run: |
+          case "${{ matrix.sdk }}" in
+            stm32f1-hal) HAL=stm32f1xx_hal.h; CORE=core_cm3.h ;;
+            stm32h7-hal) HAL=stm32h7xx_hal.h; CORE=core_cm7.h ;;
+          esac
+          echo "--- SDK tree (2 levels) ---"
+          find "$SDK_DIR" -maxdepth 2 -type d | sort | head -20
+
+          fail=0
+          for p in "$SDK_DIR/Inc/$HAL" \
+                   "$SDK_DIR/CMSIS/Device/Include" \
+                   "$SDK_DIR/CMSIS/CMSIS/Core/Include/$CORE"; do
+            if [ -e "$p" ]; then
+              echo "  ok   $p"
+            else
+              echo "::error::$p is missing — SDK layout is wrong"
+              fail=1
+            fi
+          done
+          exit $fail
+
       - name: Configure components
         run: |
           cmake -S . -B build-ci -G Ninja \
