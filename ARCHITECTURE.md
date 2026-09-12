@@ -224,6 +224,7 @@ params:  { blink_period_ms: 250 }    # параметры бизнес-логи�
 
 **Кодогенерация:**
 - `templates/` — **единственный** источник шаблонов (`.jinja`); скрипты читают их, инлайн-дубли запрещены.
+- Единая точка входа — `scripts/generate.py <board.yml> <app.yml>` (её вызывают и обычный CMake, и обёртка ESP-IDF); общие хелперы — `scripts/abl_codegen.py`.
 - Генерируется: `hardware_pins.h` (+ таблица GPIO-инициализации), `hardware_config.h` (частоты/фичи как defines).
 - Генерация пинов объединяет board + app-overlay (D9): ссылки `use:` разрешаются в пины, конфликты проверяются внутри проекта (раздел 8).
 - `gen_linker` исключается (линкеры — в `soc/`).
@@ -369,7 +370,7 @@ abl-mcu-project-blink/
 7. **Рантайм (D6):** контракт + бэкенд `bare`; `abl_delay_*` переводится на контракт (на STM32+bare — systick/DWT, не `HAL_Delay` в долгую). ✅ (sleep/uptime/task/run; `freertos` добавлен на Шаге 9)
 8. **HAL-фиксы:** сигнатуры AVR (конфликт `const`/арность `init`), точность задержек (DWT, `esp_rom_delay_us`), расширение `abl_gpio` (прерывания, AF-номер). ✅ (AVR собран и проверен после установки `avr-gcc`)
 9. **ESP32 (D3):** `target/esp32/` обёртка; `abl_main`/`app_main`; сборка `idf.py`; кодогенерация в IDF-сборке. ✅ (проверено: ESP-IDF 5.2.2 + тулчейн `xtensa-esp-elf`)
-10. **Кодогенерация:** `templates/*.jinja` становятся единственным источником; `gen_linker` удаляется; `hardware_pins.h` включает `abl_gpio.h`.
+10. **Кодогенерация:** `templates/*.jinja` становятся единственным источником; `gen_linker` удаляется; `hardware_pins.h` включает `abl_gpio.h`. ✅ (плюс общий `scripts/abl_codegen.py` и единый `scripts/generate.py`)
 11. **Чистка:** `:Zone.Identifier`, мёртвые helper-функции, починка CMakePresets, `LICENSES.md` (D10), синхронизация README с этим документом.
 12. **Native (D8):** порт `hal/src/native/` + первый хост-тест; CI.
 

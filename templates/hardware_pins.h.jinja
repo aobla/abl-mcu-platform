@@ -1,0 +1,33 @@
+#ifndef HARDWARE_PINS_H
+#define HARDWARE_PINS_H
+
+#include "abl_gpio.h"
+#include "soc_hal.h"   /* port macros (GPIOC, ...) from the SoC definition */
+
+/* Generated from board + app overlay — do not edit by hand. */
+
+{% for name, p in pins.items() %}
+#define {{ name|upper }}_PORT  {{ p.port_literal }}
+#define {{ name|upper }}_PIN   {{ p.pin }}
+#define {{ name|upper }}_MODE  {{ p.mode_macro }}
+#define {{ name|upper }}_PULL  {{ p.pull_macro }}
+#define {{ name|upper }}_STATE {{ p.state_macro }}
+#define {{ name|upper }}_SPEED {{ p.speed_macro }}
+#define {{ name|upper }}_OTYPE {{ p.otype_macro }}
+#define {{ name|upper }}_AF    {{ p.af }}
+{% endfor %}
+
+/* ─── Pin handles (kept in FLASH, no RAM cost) ──────────────────────────── */
+{% for name, p in pins.items() %}
+static const abl_gpio_pin_t pin_{{ name }} = { {{ name|upper }}_PORT, {{ name|upper }}_PIN };
+{% endfor %}
+
+/* ─── Convenience macros ────────────────────────────────────────────────── */
+/** Pointer to a pin handle by name */
+#define PIN_GET(name) (&pin_##name)
+
+#define abl_gpio_toggle_pin(name)        abl_gpio_toggle(PIN_GET(name))
+#define abl_gpio_write_pin(name, state)  abl_gpio_write(PIN_GET(name), state)
+#define abl_gpio_read_pin(name, out)     abl_gpio_read(PIN_GET(name), out)
+
+#endif /* HARDWARE_PINS_H */

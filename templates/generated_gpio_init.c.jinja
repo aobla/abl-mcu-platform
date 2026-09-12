@@ -1,0 +1,32 @@
+#include "hardware_pins.h"    /* + abl_gpio.h, soc_hal.h */
+#include "abl_target_init.h"
+#include <stddef.h>
+
+/* Generated from board + app overlay — do not edit by hand. */
+
+{% if pins %}
+typedef struct {
+    abl_gpio_pin_t pin;
+    abl_gpio_cfg_t cfg;
+} gpio_init_entry_t;
+
+static const gpio_init_entry_t gpio_init_table[] = {
+{% for name, p in pins.items() %}
+    { { {{ name|upper }}_PORT, {{ name|upper }}_PIN },
+      { {{ name|upper }}_MODE, {{ name|upper }}_PULL, {{ name|upper }}_STATE,
+        {{ name|upper }}_SPEED, {{ name|upper }}_OTYPE, {{ name|upper }}_AF } },
+{% endfor %}
+};
+
+void generated_gpio_init(void)
+{
+    for (size_t i = 0; i < sizeof(gpio_init_table) / sizeof(gpio_init_table[0]); i++) {
+        (void)abl_gpio_configure(&gpio_init_table[i].pin, &gpio_init_table[i].cfg);
+    }
+}
+{% else %}
+void generated_gpio_init(void)
+{
+    /* The project does not use any pin (empty 'pins' section in the app config). */
+}
+{% endif %}

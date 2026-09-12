@@ -1,31 +1,27 @@
 #!/usr/bin/env python3
 """
-Pinmux generation from the board + the project overlay (D5/D9).
+Pinmux generator (D5/D9).
 
     gen_pinmux.py <board.yml> <app.yml>
 
-  board.yml — onboard: { <alias>: {port, pin, mode, pull, state, speed, otype, af} }
-  app.yml   — pins:    { <logical>: {use: <alias>, ...} | {port, pin, ...} }
+  board — onboard: { <alias>: {port, pin, mode, pull, state, speed, otype, af} }
+  app   — pins:    { <logical>: {use: <alias>, ...} | {port, pin, ...} }
 
 Output: ./generated/hardware_pins.h, ./generated/generated_gpio_init.c
+
+Templates live in templates/ (single source, §9).
 
 Checks (configuration errors instead of surprises on hardware):
   - use: points to an unknown onboard resource;
   - an explicit pin has no port/pin;
   - invalid mode/pull/state/speed/otype/af or a non-identifier name;
   - two logical pins of the project resolve to the same physical pin.
-
-Note: the generated code is platform-bound (port macros such as GPIOC), which is
-why it includes the SoC-provided vendor header (soc_hal.h) itself.
 """
 
-import os
 import re
 import sys
-from pathlib import Path
 
-import yaml
-from jinja2 import Template
+from abl_codegen import emit, load_template, load_yaml, report_errors
 
 VALID_MODES = ("input", "output", "alt_function", "analog")
 VALID_PULLS = ("none", "up", "down")
@@ -61,85 +57,6 @@ OTYPE_MAP = {
 }
 
 IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-
-PINS_TEMPLATE = """#ifndef HARDWARE_PINS_H
-#define HARDWARE_PINS_H
-
-#include "abl_gpio.h"
-#include "soc_hal.h"   /* port macros (GPIOC, ...) from the SoC definition */
-
-/* Generated from board + app overlay — do not edit by hand. */
-
-{% for name, p in pins.items() %}
-#define {{ name|upper }}_PORT  {{ p.port_literal }}
-#define {{ name|upper }}_PIN   {{ p.pin }}
-#define {{ name|upper }}_MODE  {{ p.mode_macro }}
-#define {{ name|upper }}_PULL  {{ p.pull_macro }}
-#define {{ name|upper }}_STATE {{ p.state_macro }}
-#define {{ name|upper }}_SPEED {{ p.speed_macro }}
-#define {{ name|upper }}_OTYPE {{ p.otype_macro }}
-#define {{ name|upper }}_AF    {{ p.af }}
-{% endfor %}
-
-/* ─── Pin handles (kept in FLASH, no RAM cost) ──────────────────────────── */
-{% for name, p in pins.items() %}
-static const abl_gpio_pin_t pin_{{ name }} = { {{ name|upper }}_PORT, {{ name|upper }}_PIN };
-{% endfor %}
-
-/* ─── Convenience macros ────────────────────────────────────────────────── */
-/** Pointer to a pin handle by name */
-#define PIN_GET(name) (&pin_##name)
-
-#define abl_gpio_toggle_pin(name)        abl_gpio_toggle(PIN_GET(name))
-#define abl_gpio_write_pin(name, state)  abl_gpio_write(PIN_GET(name), state)
-#define abl_gpio_read_pin(name, out)     abl_gpio_read(PIN_GET(name), out)
-
-#endif /* HARDWARE_PINS_H */
-"""
-
-GPIO_INIT_TEMPLATE = """#include "hardware_pins.h"    /* + abl_gpio.h, soc_hal.h */
-#include "abl_target_init.h"
-#include <stddef.h>
-
-/* Generated from board + app overlay — do not edit by hand. */
-
-{% if pins %}
-typedef struct {
-    abl_gpio_pin_t pin;
-    abl_gpio_cfg_t cfg;
-} gpio_init_entry_t;
-
-static const gpio_init_entry_t gpio_init_table[] = {
-{% for name, p in pins.items() %}
-    { { {{ name|upper }}_PORT, {{ name|upper }}_PIN },
-      { {{ name|upper }}_MODE, {{ name|upper }}_PULL, {{ name|upper }}_STATE,
-        {{ name|upper }}_SPEED, {{ name|upper }}_OTYPE, {{ name|upper }}_AF } },
-{% endfor %}
-};
-
-void generated_gpio_init(void)
-{
-    for (size_t i = 0; i < sizeof(gpio_init_table) / sizeof(gpio_init_table[0]); i++) {
-        (void)abl_gpio_configure(&gpio_init_table[i].pin, &gpio_init_table[i].cfg);
-    }
-}
-{% else %}
-void generated_gpio_init(void)
-{
-    /* The project does not use any pin (empty 'pins' section in the app config). */
-}
-{% endif %}
-"""
-
-
-def load_yaml(path, what):
-    if not os.path.exists(path):
-        sys.exit(f"Error: {what} file does not exist: {path}")
-    with open(path, encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-    if not isinstance(data, dict):
-        sys.exit(f"Error: {what} file must be a YAML mapping: {path}")
-    return data
 
 
 def port_literal(port):
@@ -256,33 +173,27 @@ def resolve_pins(board, app):
     return resolved, errors
 
 
-def main():
-    if len(sys.argv) != 3:
-        sys.exit("Usage: gen_pinmux.py <board.yml> <app.yml>")
-
-    board = load_yaml(sys.argv[1], "board")
-    app = load_yaml(sys.argv[2], "app")
+def generate(board_path, app_path):
+    """Generate hardware_pins.h + generated_gpio_init.c; returns written paths."""
+    board = load_yaml(board_path, "board")
+    app = load_yaml(app_path, "app")
 
     pins, errors = resolve_pins(board, app)
-    if errors:
-        print("Pinmux configuration errors:", file=sys.stderr)
-        for e in errors:
-            print(f"  - {e}", file=sys.stderr)
-        sys.exit(1)
+    report_errors("Pinmux configuration errors", errors)
 
     if not pins:
         print("Warning: app.pins is empty — no pin will be initialised", file=sys.stderr)
 
-    out_dir = Path(os.getcwd()) / "generated"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    header = load_template("hardware_pins.h.jinja").render(pins=pins)
+    source = load_template("generated_gpio_init.c.jinja").render(pins=pins)
 
-    pins_h = out_dir / "hardware_pins.h"
-    pins_h.write_text(Template(PINS_TEMPLATE).render(pins=pins), encoding="utf-8")
-    print(f"Generated {pins_h}")
+    return emit("hardware_pins.h", header), emit("generated_gpio_init.c", source)
 
-    init_c = out_dir / "generated_gpio_init.c"
-    init_c.write_text(Template(GPIO_INIT_TEMPLATE).render(pins=pins), encoding="utf-8")
-    print(f"Generated {init_c}")
+
+def main():
+    if len(sys.argv) != 3:
+        sys.exit("Usage: gen_pinmux.py <board.yml> <app.yml>")
+    generate(sys.argv[1], sys.argv[2])
 
 
 if __name__ == "__main__":
