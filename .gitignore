@@ -35,3 +35,6 @@ compile_commands.json
 # Python bytecode cache (codegen scripts)
 __pycache__/
 *.pyc
+
+# Host test build directory (scripts/run_host_tests.sh)
+build-tests/

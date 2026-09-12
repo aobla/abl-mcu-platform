@@ -1,4 +1,0 @@
-hal_gpio_test 2 0.0004514
-runtime_test 2 0.0031422
-codegen_test 2 0.120015
----
