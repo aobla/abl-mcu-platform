@@ -1,6 +1,7 @@
 #ifndef ABL_COMMON_H
 #define ABL_COMMON_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 

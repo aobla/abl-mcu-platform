@@ -74,6 +74,7 @@ elseif(PLATFORM STREQUAL "avr")
     abl_component(soc
         SOURCES  ${SOC_SOURCES}
         INCLUDES ${SOC_DIR}/include
+                 ${SOC_DIR}/avr/${AVR_MCU}
         DEFINES  F_CPU=${F_CPU_HZ}
     )
 elseif(PLATFORM STREQUAL "esp32")

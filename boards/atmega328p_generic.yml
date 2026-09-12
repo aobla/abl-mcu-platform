@@ -1,6 +1,6 @@
-# Board-дефиниция: обобщённая плата ATmega328P (перенос из проекта, Шаг 5)
+# Board-дефиниция: обобщённая плата ATmega328P
 #
-# TODO: AVR-порт чинится на Шаге 8 (SoC-дефиниция, target_init, HAL-сигнатуры).
+# AVR-порт собран и проверен (Шаг 8/9).
 
 board:
   name: atmega328p_generic
@@ -16,7 +16,7 @@ oscillator:
   freq_hz: 16000000
 
 frequencies:
-  cpu_freq: 16000000
+  cpu: 16000000             # -> CPU_FREQ
 
 memory:
   flash: 32768
