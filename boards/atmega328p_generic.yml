@@ -27,3 +27,13 @@ onboard:
   led0:      { port: 0, pin: 5, mode: output }
   usart1_tx: { port: 2, pin: 1, mode: alt_function }
   usart1_rx: { port: 2, pin: 0, mode: alt_function }
+
+# Прошивка и монитор: ./build.sh -C <config> --flash [--monitor]
+flash:
+  tool: avrdude
+  programmer: arduino             # USB-загрузчик Arduino (или usbasp/wiring)
+  port: /dev/ttyACM0              # ← поправьте под свою плату
+  baud: 115200
+monitor:
+  port: /dev/ttyACM0
+  baud: 115200

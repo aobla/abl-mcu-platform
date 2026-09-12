@@ -9,9 +9,10 @@
 ```
 abl-mcu-platform/
 ├── ARCHITECTURE.md    # конституция платформы
-├── manifest.yml       # vendor-SDK и тулчейны (версии по тегам)
-├── cmake/             # тулчейны и CMake-хелперы
-├── hal/               # контракты (include/abl/) + порты (src/{stm32,avr,esp32,native})
+├── LICENSES.md        # инвентарь лицензий (D10)
+├── manifest.yml       # vendor-SDK и тулчейны (канонический источник версий)
+├── cmake/             # тулчейны и CMake-хелперы (abl_component, резолвер SoC)
+├── hal/               # контракты (include/) + порты (src/{stm32,avr,esp32,native})
 ├── runtime/           # контракт рантайма + бэкенды bare / freertos
 ├── soc/               # bring-up по SoC (тактирование, startup, линкер)
 ├── boards/            # board-дефиниции (YAML)

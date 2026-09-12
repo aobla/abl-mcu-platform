@@ -33,3 +33,10 @@ onboard:
   btn0:      { port: GPIOA, pin: 0,  mode: input,  pull: up }     # кнопка
   usart1_tx: { port: GPIOA, pin: 9,  mode: alt_function }         # AF-номер — Шаг 8
   usart1_rx: { port: GPIOA, pin: 10, mode: alt_function }
+
+# Прошивка и монитор: ./build.sh -C <config> --flash [--monitor]
+flash:
+  tool: openocd                   # конфиг: boards/<board.name>.openocd.cfg
+monitor:
+  port: /dev/ttyUSB0              # UART платы (USB-UART адаптер)
+  baud: 115200

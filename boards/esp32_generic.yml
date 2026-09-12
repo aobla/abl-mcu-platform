@@ -24,3 +24,10 @@ onboard:
   led0:      { port: 2, pin: 0, mode: output }
   usart1_tx: { port: 1, pin: 0, mode: alt_function }
   usart1_rx: { port: 3, pin: 0, mode: alt_function }
+
+# Прошивка и монитор: ./build.sh -C <config> --flash [--monitor] (idf.py)
+flash:
+  tool: idf
+  port: /dev/ttyUSB0              # ← USB-UART ESP32 (поправьте под свою плату)
+monitor:
+  baud: 115200

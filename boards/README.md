@@ -37,4 +37,21 @@ onboard:
   (USART/SPI одним узлом) — расширение на будущее.
 - `oscillator` — пока справочные данные: тактирование задаётся в `soc/.../clock.c`
   (параметризация кварцем из board — задача на будущее).
-- AF-номер периферии появится вместе с расширением контракта GPIO (Шаг 8).
+
+## Прошивка и монитор
+
+Board-дефиниция описывает и то, **как** прошивать плату — единые команды
+`./build.sh -C <config> --flash [--monitor]` читают эти секции:
+
+```yaml
+flash:
+  tool: openocd        # STM32: конфиг boards/<board.name>.openocd.cfg
+  # tool: avrdude      # AVR: нужны programmer/port/baud
+  # tool: idf          # ESP32: idf.py flash (-p <port>)
+  port: /dev/ttyUSB0   # для avrdude/idf
+monitor:
+  port: /dev/ttyUSB0   # picocom (ESP32: idf.py monitor)
+  baud: 115200
+```
+
+AF-номер периферии у пинов уже поддерживается (`af: 4` в H743-платах).

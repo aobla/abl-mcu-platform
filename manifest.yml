@@ -1,13 +1,136 @@
-# manifest.yml
-# Единый манифест зависимостей платформы (эволюция prerequisites.yaml из проектов).
-# Здесь фиксируются версии vendor-SDK и тулчейнов по тегам (D2, ARCHITECTURE §5).
+# manifest.yml — единый манифест зависимостей платформы (D2, ARCHITECTURE §5)
 #
-# Заполняется и подключается на Шагах 2/11 миграции. Пока — заглушка структуры.
+# КАНОНИЧЕСКИЙ источник версий vendor-SDK и тулчейнов. Проект читает его через
+# setup.sh (после того как платформа оказалась в lib/ или рядом). В проектном
+# prerequisites.yaml остаётся только bootstrap: системные инструменты, pip-пакеты
+# и ссылка на репозиторий платформы.
+#
+# Установка: ./setup.sh -p <platform> [-d] [--check-only]
+#   stm32/<family> → SDK из stm32_sdk_map, тулчейн arm-none-eabi-gcc
+#   avr            → avr-gcc + avr-libc
+#   esp32          → ESP-IDF (включая тулчейн через install.sh/export.sh)
 
-vendor: {}
-  # stm32f1-hal: { git: ..., tag: ... }
-  # esp-idf: { git: ..., tag: v5.2.2 }
+# ─── Platform toolchains (cross-compilers) ───────────────────────────────────
+platforms:
+  stm32:
+    - name: arm-none-eabi-gcc
+      check:
+        binary: arm-none-eabi-gcc
+        version_flag: "--version"
+        version_regex: "arm-none-eabi-gcc.*?\\)\\s+([0-9]+\\.[0-9]+\\.[0-9]+)"
+        min_version: "12.0"
+      packages:
+        debian: gcc-arm-none-eabi
+        ubuntu: gcc-arm-none-eabi
+        arch: arm-none-eabi-gcc
+        fedora: arm-none-eabi-gcc-cs
+        macos: null
+      download:
+        linux_x86_64:
+          url: "https://developer.arm.com/-/media/Files/downloads/gnu/13.2.rel1/binrel/arm-gnu-toolchain-13.2.rel1-x86_64-arm-none-eabi.tar.xz"
+          archive_type: "tar.xz"
+        linux_aarch64:
+          url: "https://developer.arm.com/-/media/Files/downloads/gnu/13.2.rel1/binrel/arm-gnu-toolchain-13.2.rel1-aarch64-arm-none-eabi.tar.xz"
+          archive_type: "tar.xz"
+        macos_arm64:
+          url: "https://developer.arm.com/-/media/Files/downloads/gnu/13.2.rel1/binrel/arm-gnu-toolchain-13.2.rel1-darwin-arm64-arm-none-eabi.tar.xz"
+          archive_type: "tar.xz"
+        macos_x86_64:
+          url: "https://developer.arm.com/-/media/Files/downloads/gnu/13.2.rel1/binrel/arm-gnu-toolchain-13.2.rel1-darwin-x86_64-arm-none-eabi.tar.xz"
+          archive_type: "tar.xz"
+      install_dir: "~/.local/share/abl-mcu-toolchains/arm-none-eabi"
 
-toolchains: {}
-  # arm-none-eabi-gcc: { min: "12.0" }
-  # avr-gcc: { min: "5.0" }
+  # SDK mapping: sub-platform → SDK name
+  stm32_sdk_map:
+    stm32f103: stm32f1-hal
+    stm32f4:   stm32f4-hal
+    stm32h743: stm32h7-hal
+
+  avr:
+    - name: avr-gcc
+      check:
+        binary: avr-gcc
+        version_flag: "--version"
+        version_regex: "avr-gcc.*?\\)\\s+([0-9]+\\.[0-9]+\\.[0-9]+)"
+        min_version: "5.0"
+      packages:
+        debian: gcc-avr avr-libc
+        ubuntu: gcc-avr avr-libc
+        arch: avr-gcc avr-libc
+        fedora: avr-gcc avr-libc
+        macos: avr-gcc
+      install_dir: "~/.local/share/abl-mcu-toolchains/avr"
+
+  esp32:
+    - name: esp-idf
+      check:
+        binary: idf.py
+        version_flag: "--version"
+        version_regex: "v([0-9]+\\.[0-9]+)"
+        min_version: "5.0"
+        env_setup: "source {idf_path}/export.sh"
+      packages:
+        debian: git wget python3 python3-pip
+        ubuntu: git wget python3 python3-pip
+        arch: git wget python python-pip
+        fedora: git wget python3 python3-pip
+        macos: git wget python3
+      git:
+        url: "https://github.com/espressif/esp-idf.git"
+        tag: "v5.2.2"
+      install_dir: "~/.local/share/abl-mcu-sdks/esp-idf"
+      install_script: "install.sh"
+      export_script: "export.sh"
+
+# ─── SDKs (device-specific vendor libraries) ─────────────────────────────────
+sdks:
+  stm32f1-hal:
+    git:
+      - url: "https://github.com/STMicroelectronics/stm32f1xx-hal-driver.git"
+        tag: "v1.1.10"
+      - url: "https://github.com/STMicroelectronics/cmsis_device_f1.git"
+        tag: "v4.3.5"
+        subdir: "CMSIS/Device"
+      - url: "https://github.com/ARM-software/CMSIS_5.git"
+        tag: "5.9.0"
+        subdir: "CMSIS"
+    install_dir: "~/.local/share/abl-mcu-sdks/stm32f1-hal"
+    cmake_var: STM32F1_HAL_ROOT
+    include_dirs:
+      - "Inc"
+      - "CMSIS/Device/Include"
+      - "CMSIS/CMSIS/Core/Include"
+
+  stm32f4-hal:
+    git:
+      - url: "https://github.com/STMicroelectronics/stm32f4xx-hal-driver.git"
+        tag: "v1.8.5"
+      - url: "https://github.com/STMicroelectronics/cmsis_device_f4.git"
+        tag: "v2.6.11"
+        subdir: "CMSIS/Device"
+      - url: "https://github.com/ARM-software/CMSIS_5.git"
+        tag: "5.9.0"
+        subdir: "CMSIS"
+    install_dir: "~/.local/share/abl-mcu-sdks/stm32f4-hal"
+    cmake_var: STM32F4_HAL_ROOT
+    include_dirs:
+      - "Inc"
+      - "CMSIS/Device/Include"
+      - "CMSIS/CMSIS/Core/Include"
+
+  stm32h7-hal:
+    git:
+      - url: "https://github.com/STMicroelectronics/stm32h7xx-hal-driver.git"
+        tag: "v1.11.6"
+      - url: "https://github.com/STMicroelectronics/cmsis_device_h7.git"
+        tag: "v1.10.7"
+        subdir: "CMSIS/Device"
+      - url: "https://github.com/ARM-software/CMSIS_5.git"
+        tag: "5.9.0"
+        subdir: "CMSIS"
+    install_dir: "~/.local/share/abl-mcu-sdks/stm32h7-hal"
+    cmake_var: STM32H7_HAL_ROOT
+    include_dirs:
+      - "Inc"
+      - "CMSIS/Device/Include"
+      - "CMSIS/CMSIS/Core/Include"
